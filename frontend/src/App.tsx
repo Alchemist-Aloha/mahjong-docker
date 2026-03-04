@@ -23,6 +23,21 @@ interface Room {
   host: string;
 }
 
+interface FanResult {
+  name: string;
+  points: number;
+}
+
+interface GameOverData {
+  winner?: string;
+  type?: string;
+  message?: string;
+  score?: {
+    total: number;
+    fans: FanResult[];
+  };
+}
+
 interface GameState {
   currentTurn: string;
   dealer: string;
@@ -128,7 +143,7 @@ const App: React.FC = () => {
   const [joinedRoom, setJoinedRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState('');
-  const [gameOver, setGameOver] = useState<string | null>(null);
+  const [gameOverInfo, setGameOverInfo] = useState<GameOverData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
@@ -148,19 +163,15 @@ const App: React.FC = () => {
 
     newSocket.on('gameStarted', () => {
       setError('');
-      setGameOver(null);
+      setGameOverInfo(null);
     });
 
     newSocket.on('gameState', (state: GameState) => {
       setGameState(state);
     });
 
-    newSocket.on('gameOver', (data: any) => {
-      if (data.winner) {
-        setGameOver(`胜利者: ${data.winner === newSocket.id ? '你' : data.winner} (${data.type === 'Ron' ? '点炮荣' : '自摸'})`);
-      } else {
-        setGameOver(`游戏结束: ${data.message === 'Draw' ? '流局' : data.message}`);
-      }
+    newSocket.on('gameOver', (data: GameOverData) => {
+      setGameOverInfo(data);
     });
 
     newSocket.on('error', (msg: string) => {
@@ -330,18 +341,43 @@ const App: React.FC = () => {
               <span className="card" style={{ padding: '5px 12px', margin: 0 }}>剩余: {gameState.deckSize} 张</span>
             </div>
 
-            {gameState.roundOver && (
-              <div className="card" style={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2000, width: '90%', maxWidth: '400px', color: '#fff' }}>
-                <div style={{ fontSize: '24px', marginBottom: '20px' }}>{gameOver}</div>
-                <div style={{ marginBottom: '20px' }}>
+            {gameState.roundOver && gameOverInfo && (
+              <div className="card" style={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2000, width: '90%', maxWidth: '450px', color: '#fff', maxHeight: '85vh', overflowY: 'auto', padding: '25px' }}>
+                <div style={{ fontSize: '28px', color: 'var(--accent-color)', marginBottom: '10px' }}>
+                  {gameOverInfo.winner ? (gameOverInfo.winner === socket?.id ? '🎉 你赢了！' : '游戏结束') : '流局'}
+                </div>
+                
+                {gameOverInfo.winner && gameOverInfo.score && (
+                  <div style={{ marginBottom: '20px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', padding: '15px', backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontSize: '18px', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                      {gameOverInfo.type === 'Ron' ? '点炮荣' : '自摸'} - {gameOverInfo.score.total} 番
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                      {gameOverInfo.score.fans.map((f, i) => (
+                        <div key={i} style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', border: '1px solid var(--accent-color)', borderRadius: '4px', padding: '4px 8px', fontSize: '14px' }}>
+                          {f.name} <span style={{ color: '#ffeb3b' }}>+{f.points}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {gameOverInfo.message && <div style={{ fontSize: '20px', marginBottom: '20px' }}>{gameOverInfo.message}</div>}
+
+                <div style={{ marginBottom: '25px' }}>
+                  <div style={{ fontSize: '14px', opacity: 0.7, marginBottom: '10px' }}>确认就绪以开始下一轮</div>
                   {gameState.players.map(p => (
-                    <div key={p.id} style={{ fontSize: '14px', marginBottom: '5px' }}>
-                      {p.id === socket?.id ? '你' : `玩家 ${p.id.substring(0, 5)}`}: {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中...'}
+                    <div key={p.id} style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
+                      <span>{p.id === socket?.id ? '你' : `玩家 ${p.id.substring(0, 5)}`}</span>
+                      <span style={{ color: gameState.nextRoundReady[p.id] || p.isBot ? '#4caf50' : '#ff5252' }}>
+                        {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中'}
+                      </span>
                     </div>
                   ))}
                 </div>
+                
                 {!gameState.nextRoundReady[socket?.id || ''] && (
-                  <button onClick={nextRound} style={{ backgroundColor: 'var(--button-success)', color: '#fff', width: '100%', fontSize: '20px' }}>进入下一轮</button>
+                  <button onClick={nextRound} style={{ backgroundColor: 'var(--button-success)', color: '#fff', width: '100%', fontSize: '22px', padding: '15px' }}>进入下一轮</button>
                 )}
               </div>
             )}
