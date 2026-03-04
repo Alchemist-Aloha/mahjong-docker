@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import MahjongTile from './components/MahjongTile';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
@@ -9,11 +10,23 @@ const getSocketUrl = () => {
 
 const SOCKET_URL = getSocketUrl();
 
+const getUserId = () => {
+  let id = localStorage.getItem('mahjong_user_id');
+  if (!id) {
+    id = 'user_' + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
+    localStorage.setItem('mahjong_user_id', id);
+  }
+  return id;
+};
+
+const userId = getUserId();
+
 interface Player {
   id: string;
   name: string;
   ready: boolean;
   isBot: boolean;
+  isOnline: boolean;
   totalScore: number;
   handSize?: number;
   isDealer?: boolean;
@@ -57,95 +70,10 @@ interface GameState {
   players: Player[];
 }
 
-const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: boolean, onClick?: () => void, theme: 'light' | 'dark' }> = ({ name, size = 40, highlighted, onClick, theme }) => {
-  const width = size;
-  const height = size * 1.4;
-  
-  const renderContent = () => {
-    const value = name[0];
-    const suit = name[1];
-    
-    if (suit === '万') {
-      return (
-        <g>
-          <text x="50%" y="40%" fontSize={width * 0.4} textAnchor="middle" dominantBaseline="middle" fill="#d32f2f" fontWeight="bold">{value}</text>
-          <text x="50%" y="75%" fontSize={width * 0.4} textAnchor="middle" dominantBaseline="middle" fill="#1976d2" fontWeight="bold">万</text>
-        </g>
-      );
-    } else if (suit === '条') {
-      const sticks = {
-        '一': [[50, 50]], '二': [[50, 35], [50, 65]], '三': [[50, 25], [50, 50], [50, 75]],
-        '四': [[35, 35], [65, 35], [35, 65], [65, 65]], '五': [[35, 35], [65, 35], [50, 50], [35, 65], [65, 65]],
-        '六': [[35, 25], [65, 25], [35, 50], [65, 50], [35, 75], [65, 75]],
-        '七': [[50, 25], [35, 50], [65, 50], [35, 75], [65, 75], [35, 35], [65, 35]],
-        '八': [[35, 20], [65, 20], [35, 40], [65, 40], [35, 60], [65, 60], [35, 80], [65, 80]],
-        '九': [[25, 25], [50, 25], [75, 25], [25, 50], [50, 50], [75, 50], [25, 75], [50, 75], [75, 75]]
-      }[value] || [];
-      return sticks.map(([x, y], i) => <rect key={i} x={`${x-5}%`} y={`${y-10}%`} width="10%" height="20%" fill="#2e7d32" rx="2" />);
-    } else if (suit === '饼') {
-      const dots = {
-        '一': [[50, 50, 25]], '二': [[50, 30, 15], [50, 70, 15]], '三': [[25, 25, 12], [50, 50, 12], [75, 75, 12]],
-        '四': [[30, 30, 12], [70, 30, 12], [30, 70, 12], [70, 70, 12]], '五': [[30, 30, 12], [70, 30, 12], [50, 50, 12], [30, 70, 12], [70, 70, 12]],
-        '六': [[30, 25, 10], [70, 25, 10], [30, 50, 10], [70, 50, 10], [30, 75, 10], [70, 75, 10]],
-        '七': [[50, 20, 8], [30, 45, 8], [70, 45, 8], [30, 70, 8], [70, 70, 8], [30, 20, 8], [70, 20, 8]],
-        '八': [[30, 15, 8], [70, 15, 8], [30, 38, 8], [70, 38, 8], [30, 61, 8], [70, 61, 8], [30, 84, 8], [70, 84, 8]],
-        '九': [[25, 20, 8], [50, 20, 8], [75, 20, 8], [25, 50, 8], [50, 50, 8], [75, 50, 8], [25, 80, 8], [50, 80, 8], [75, 80, 8]]
-      }[value] || [];
-      return dots.map(([x, y, r], i) => <circle key={i} cx={`${x}%`} cy={`${y}%`} r={`${r}%`} fill={i % 2 === 0 ? "#1976d2" : "#d32f2f"} />);
-    } else if (['春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'].includes(name)) {
-      const colors: Record<string, string> = { '春': '#f44336', '夏': '#4caf50', '秋': '#ff9800', '冬': '#2196f3', '梅': '#e91e63', '兰': '#9c27b0', '竹': '#2e7d32', '菊': '#ffc107' };
-      return (
-        <g>
-          <rect x="15%" y="15%" width="70%" height="70%" rx="5" fill="none" stroke={colors[name]} strokeWidth="2" strokeDasharray="2,2" />
-          <text x="50%" y="55%" fontSize={width * 0.6} textAnchor="middle" dominantBaseline="middle" fill={colors[name]} fontWeight="bold">{name}</text>
-        </g>
-      );
-    } else {
-      let color = theme === 'dark' ? "#ddd" : "#333";
-      if (['东风', '南风', '西风', '北风'].includes(name)) {
-        color = "#000";
-      }
-      if (name === "红中") color = "#d32f2f";
-      if (name === "发财") color = "#2e7d32";
-      if (name === "白板") {
-        return <rect x="20%" y="20%" width="60%" height="60%" fill="none" stroke="#1976d2" strokeWidth="4" rx="2" />;
-      }
-      return <text x="50%" y="55%" fontSize={width * 0.6} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[0]}</text>;
-    }
-  };
-
-  return (
-    <div 
-      onClick={onClick}
-      style={{ 
-        width, height, 
-        backgroundColor: theme === 'dark' ? '#f5f5f5' : '#fff', 
-        border: highlighted ? '2px solid var(--accent-color)' : `1px solid ${theme === 'dark' ? '#999' : '#333'}`,
-        borderRadius: '4px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '2px',
-        cursor: onClick ? 'pointer' : 'default',
-        boxShadow: highlighted ? '0 0 8px var(--accent-glow)' : '0 2px 4px rgba(0,0,0,0.2)',
-        userSelect: 'none',
-        transition: 'transform 0.1s, background-color 0.3s',
-        flexShrink: 0
-      }}
-    >
-      <svg width="100%" height="80%" viewBox="0 0 100 100">
-        {renderContent()}
-      </svg>
-      <span style={{ fontSize: '9px', color: '#333', fontWeight: 'normal' }}>{name}</span>
-    </div>
-  );
-};
-
 const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [roomId, setRoomId] = useState('');
-  const [playerName, setPlayerName] = useState('');
+  const [roomId, setRoomId] = useState(() => localStorage.getItem('mahjong_room_id') || '');
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('mahjong_player_name') || '');
   const [joinedRoom, setJoinedRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState('');
@@ -163,10 +91,19 @@ const App: React.FC = () => {
     const newSocket = io(SOCKET_URL);
     setSocket(newSocket);
 
+    newSocket.on('connect', () => {
+      const savedRoomId = localStorage.getItem('mahjong_room_id');
+      if (savedRoomId) {
+        newSocket.emit('joinRoom', { roomId: savedRoomId, userId, name: playerName });
+      }
+    });
+
     newSocket.on('roomUpdate', (room: Room) => {
       setJoinedRoom(room);
-      if (room.players[newSocket.id]) {
-        setPlayerName(room.players[newSocket.id].name);
+      localStorage.setItem('mahjong_room_id', room.id);
+      if (room.players[userId]) {
+        setPlayerName(room.players[userId].name);
+        localStorage.setItem('mahjong_player_name', room.players[userId].name);
       }
     });
 
@@ -198,13 +135,14 @@ const App: React.FC = () => {
 
   const joinRoom = () => {
     if (socket && roomId) {
-      socket.emit('joinRoom', roomId);
+      socket.emit('joinRoom', { roomId, userId, name: playerName });
     }
   };
 
   const handleUpdateName = () => {
     if (socket && joinedRoom && playerName) {
       socket.emit('updateName', { roomId: joinedRoom.id, name: playerName });
+      localStorage.setItem('mahjong_player_name', playerName);
     }
   };
 
@@ -227,13 +165,13 @@ const App: React.FC = () => {
   };
 
   const discardTile = (index: number) => {
-    if (socket && joinedRoom && gameState?.currentTurn === socket.id) {
+    if (socket && joinedRoom && gameState?.currentTurn === userId) {
       socket.emit('discardTile', { roomId: joinedRoom.id, tileIndex: index });
     }
   };
 
   const discardDrawnTile = () => {
-    if (socket && joinedRoom && gameState?.currentTurn === socket.id) {
+    if (socket && joinedRoom && gameState?.currentTurn === userId) {
       socket.emit('discardTile', { roomId: joinedRoom.id, tileIndex: -1 });
     }
   };
@@ -242,6 +180,11 @@ const App: React.FC = () => {
     if (socket && joinedRoom) {
       socket.emit('performAction', { roomId: joinedRoom.id, action });
     }
+  };
+
+  const leaveRoom = () => {
+     localStorage.removeItem('mahjong_room_id');
+     window.location.reload();
   };
 
   const theme = isDarkMode ? 'dark' : 'light';
@@ -391,7 +334,7 @@ const App: React.FC = () => {
                   ))}
                 </div>
                 
-                {!gameState.nextRoundReady[socket?.id || ''] && (
+                {!gameState.nextRoundReady[userId] && (
                   <button onClick={nextRound} style={{ backgroundColor: 'var(--button-success)', color: '#fff', width: '100%', fontSize: '22px', padding: '15px' }}>进入下一轮</button>
                 )}
               </div>
@@ -401,12 +344,15 @@ const App: React.FC = () => {
               {gameState.players.map(p => (
                 <div key={p.id} className="card" style={{ 
                   border: p.id === gameState.currentTurn ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
-                  position: 'relative'
+                  position: 'relative',
+                  opacity: p.isOnline || p.isBot ? 1 : 0.6
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span style={{ fontWeight: p.id === gameState.currentTurn ? 'bold' : 'normal' }}>
                       {p.isDealer && <span style={{ backgroundColor: '#ff5252', color: '#fff', padding: '2px 4px', borderRadius: '4px', marginRight: '5px', fontSize: '12px' }}>庄</span>}
+                      {p.id === userId && <span style={{ color: 'var(--accent-color)', marginRight: '3px' }}>【你】</span>}
                       {p.name} {p.isBot && '(电脑)'}
+                      {!p.isOnline && !p.isBot && <span style={{ fontSize: '10px', color: '#ff5252', marginLeft: '5px' }}>(离线)</span>}
                     </span>
                     <span style={{ fontSize: '12px', opacity: 0.8 }}>总分: {p.totalScore} | 手牌: {p.handSize}</span>
                   </div>
@@ -415,14 +361,14 @@ const App: React.FC = () => {
                     {gameState.flowers[p.id]?.length > 0 && (
                       <div style={{ display: 'flex', gap: '2px', border: '1px solid #ffccbc', padding: '2px', borderRadius: '4px', backgroundColor: '#fffbe6', marginRight: '5px' }}>
                         {gameState.flowers[p.id].map((tile, fIdx) => (
-                          <MahjongTileSVG key={fIdx} name={tile} size={20} theme={theme} />
+                          <MahjongTile key={fIdx} name={tile} size={20} theme={theme} />
                         ))}
                       </div>
                     )}
                     {gameState.melds[p.id]?.map((meld, mIdx) => (
                       <div key={mIdx} style={{ display: 'flex', gap: '1px', border: '1px solid var(--border-color)', padding: '1px', borderRadius: '2px' }}>
                         {meld.map((tile, tIdx) => (
-                          <MahjongTileSVG key={tIdx} name={tile} size={22} theme={theme} />
+                          <MahjongTile key={tIdx} name={tile} size={22} theme={theme} />
                         ))}
                       </div>
                     ))}
@@ -430,7 +376,7 @@ const App: React.FC = () => {
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
                     {gameState.discards[p.id]?.map((tile, idx) => (
-                      <MahjongTileSVG key={idx} name={tile} size={26} theme={theme} />
+                      <MahjongTile key={idx} name={tile} size={26} theme={theme} />
                     ))}
                   </div>
                   {p.id === gameState.currentTurn && !gameState.roundOver && <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>出牌中</div>}
@@ -443,7 +389,7 @@ const App: React.FC = () => {
                 {gameState.pendingActionTile && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '5px' }}>
                     <span style={{ fontSize: '14px', fontWeight: 'bold' }}>对手打出: </span>
-                    <MahjongTileSVG name={gameState.pendingActionTile} size={40} theme={theme} highlighted />
+                    <MahjongTile name={gameState.pendingActionTile} size={40} theme={theme} highlighted />
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -470,7 +416,7 @@ const App: React.FC = () => {
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {gameState.hand.map((tile, idx) => (
-                      <MahjongTileSVG 
+                      <MahjongTile 
                         key={idx} 
                         name={tile} 
                         size={44} 
@@ -483,7 +429,7 @@ const App: React.FC = () => {
                   {gameState.drawnTile && (
                     <>
                       <div style={{ width: '1px', height: '40px', backgroundColor: 'var(--border-color)', margin: '0 5px' }}></div>
-                      <MahjongTileSVG 
+                      <MahjongTile 
                         name={gameState.drawnTile} 
                         size={44} 
                         theme={theme}
@@ -493,7 +439,7 @@ const App: React.FC = () => {
                     </>
                   )}
                 </div>
-                {gameState.currentTurn === socket?.id && !gameState.roundOver && (
+                {gameState.currentTurn === userId && !gameState.roundOver && (
                   <p style={{ color: 'var(--accent-color)', fontWeight: 'bold', margin: '5px 0 0', fontSize: '14px', textAlign: 'center' }}>轮到你了，点击牌面打出</p>
                 )}
               </div>
@@ -501,7 +447,10 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div className="card" style={{ textAlign: 'center' }}>
-            <h2>房间: {joinedRoom.id}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h2 style={{ margin: 0 }}>房间: {joinedRoom.id}</h2>
+              <button onClick={leaveRoom} style={{ backgroundColor: '#ff5252', color: '#fff', padding: '5px 10px', fontSize: '12px' }}>离开房间</button>
+            </div>
             
             <div className="card" style={{ padding: '10px', marginBottom: '20px' }}>
               <div style={{ marginBottom: '10px', fontSize: '14px', opacity: 0.8 }}>修改你的昵称:</div>
@@ -519,8 +468,11 @@ const App: React.FC = () => {
 
             <div style={{ marginBottom: '20px' }}>
               {Object.values(joinedRoom.players).map((p) => (
-                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{p.id === socket?.id ? <strong>【你】{p.name}</strong> : p.name}</span>
+                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: p.isOnline || p.isBot ? 1 : 0.6 }}>
+                  <span>
+                    {p.id === userId ? <strong>【你】{p.name}</strong> : p.name}
+                    {!p.isOnline && !p.isBot && <span style={{ fontSize: '12px', color: '#ff5252', marginLeft: '5px' }}>(离线)</span>}
+                  </span>
                   <span style={{ color: p.ready ? 'var(--accent-color)' : '#ff5252', fontWeight: 'bold' }}>{p.ready ? '已准备' : '未准备'}</span>
                 </div>
               ))}
@@ -528,10 +480,10 @@ const App: React.FC = () => {
             
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
               <button onClick={toggleReady} style={{ backgroundColor: 'var(--button-primary)', color: '#fff' }}>
-                {joinedRoom.players[socket?.id || '']?.ready ? '取消准备' : '准备游戏'}
+                {joinedRoom.players[userId]?.ready ? '取消准备' : '准备游戏'}
               </button>
               
-              {joinedRoom.host === socket?.id && (
+              {joinedRoom.host === userId && (
                 <button onClick={startGame} style={{ backgroundColor: 'var(--button-success)', color: '#fff' }}>开始游戏</button>
               )}
             </div>

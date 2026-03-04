@@ -166,9 +166,10 @@ export class MahjongGame {
     });
   }
 
-  private broadcastState() {
+  public broadcastState() {
     this.playerIds.forEach(id => {
-      if (!this.room.players[id].isBot) {
+      const player = this.room.players[id];
+      if (!player.isBot) {
         const state = {
           currentTurn: this.playerIds[this.currentTurnIndex],
           dealer: this.playerIds[this.dealerIndex],
@@ -189,10 +190,11 @@ export class MahjongGame {
             totalScore: this.room.players[pid].totalScore,
             handSize: this.hands[pid].length + (this.lastDrawnTile[pid] ? 1 : 0),
             isBot: this.room.players[pid].isBot,
+            isOnline: this.room.players[pid].isOnline,
             isDealer: pid === this.playerIds[this.dealerIndex]
           }))
         };
-        this.io.to(id).emit('gameState', state);
+        this.io.to(player.socketId).emit('gameState', state);
       }
     });
   }
