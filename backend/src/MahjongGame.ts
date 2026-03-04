@@ -8,40 +8,61 @@ export class MahjongGame {
   public playerIds: string[] = [];
   public hands: Record<string, string[]> = {};
   public discards: Record<string, string[]> = {};
-  public melds: Record<string, string[][]> = {}; // Track Pong/Kong sets
+  public melds: Record<string, string[][]> = {};
+  public flowers: Record<string, string[]> = {}; 
   public currentTurnIndex: number = 0;
   private bots: MahjongBot[] = [];
   private isRunning: boolean = false;
   public lastDrawnTile: Record<string, string | null> = {};
   
-  // Action waiting state
   private pendingDiscard: { playerId: string, tile: string } | null = null;
-  private waitingForActions: Record<string, string[]> = {}; // playerId -> ['PONG', 'KONG']
+  private waitingForActions: Record<string, string[]> = {}; 
+  private collectedActions: Record<string, string | null> = {};
   private actionTimeout: NodeJS.Timeout | null = null;
+
+  // Round/Dealer management
+  private dealerIndex: number = 0;
+  private nextRoundReady: Record<string, boolean> = {};
+  private roundWinner: string | null = null;
 
   constructor(io: Server, room: any) {
     this.io = io;
     this.room = room;
     this.playerIds = Object.keys(room.players);
+    this.resetState();
+  }
+
+  private resetState() {
     this.playerIds.forEach(id => {
       this.hands[id] = [];
       this.discards[id] = [];
       this.melds[id] = [];
+      this.flowers[id] = [];
       this.lastDrawnTile[id] = null;
+      this.nextRoundReady[id] = false;
     });
+    this.pendingDiscard = null;
+    this.waitingForActions = {};
+    this.collectedActions = {};
+    this.roundWinner = null;
   }
 
   private getTileWeight(tile: string): number {
     const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
     const suitMap: Record<string, number> = { '条': 10, '饼': 20, '万': 30 };
     const honorMap: Record<string, number> = { '东风': 41, '南风': 42, '西风': 43, '北风': 44, '红中': 45, '发财': 46, '白板': 47 };
+    const flowerMap: Record<string, number> = { '春': 51, '夏': 52, '秋': 53, '冬': 54, '梅': 55, '兰': 56, '竹': 57, '菊': 58 };
 
     if (tile.length === 2) {
       const v = valueMap[tile[0]];
       const s = suitMap[tile[1]];
       if (v && s) return s + v;
     }
-    return honorMap[tile] || 99;
+    return honorMap[tile] || flowerMap[tile] || 99;
+  }
+
+  private isFlower(tile: string): boolean {
+    return ['春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'].includes(tile);
   }
 
   private sortHand(id: string) {
@@ -53,8 +74,48 @@ export class MahjongGame {
     this.initializeDeck();
     this.dealCards();
     this.initializeBots();
+    this.playerIds.forEach(id => this.resolveInitialFlowers(id));
+    
+    // Game starts with the dealer
+    this.currentTurnIndex = this.dealerIndex;
     this.broadcastState();
     this.drawTile(this.playerIds[this.currentTurnIndex]);
+  }
+
+  public startNextRound() {
+    this.resetState();
+    this.start();
+  }
+
+  public playerReadyForNextRound(playerId: string) {
+    this.nextRoundReady[playerId] = true;
+    this.broadcastState();
+
+    const allReady = this.playerIds.every(id => this.nextRoundReady[id] || this.room.players[id].isBot);
+    if (allReady) {
+      setTimeout(() => this.startNextRound(), 1000);
+    }
+  }
+
+  private resolveInitialFlowers(playerId: string) {
+    let hasFlowers = true;
+    while (hasFlowers) {
+      const flowerIndices = this.hands[playerId]
+        .map((t, i) => this.isFlower(t) ? i : -1)
+        .filter(i => i !== -1);
+      
+      if (flowerIndices.length === 0) {
+        hasFlowers = false;
+      } else {
+        const idx = flowerIndices[0];
+        const flower = this.hands[playerId].splice(idx, 1)[0];
+        this.flowers[playerId].push(flower);
+        if (this.deck.length > 0) {
+          this.hands[playerId].push(this.deck.shift()!); 
+        }
+      }
+    }
+    this.sortHand(playerId);
   }
 
   public stop() {
@@ -67,6 +128,7 @@ export class MahjongGame {
     const values = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
     const winds = ['东风', '南风', '西风', '北风'];
     const dragons = ['红中', '发财', '白板'];
+    const flowerTiles = ['春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'];
 
     this.deck = [];
     suits.forEach(suit => {
@@ -80,6 +142,7 @@ export class MahjongGame {
     dragons.forEach(dragon => {
       for (let i = 0; i < 4; i++) this.deck.push(dragon);
     });
+    flowerTiles.forEach(f => this.deck.push(f));
 
     for (let i = this.deck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -95,7 +158,6 @@ export class MahjongGame {
         }
       });
     }
-    this.playerIds.forEach(id => this.sortHand(id));
   }
 
   private initializeBots() {
@@ -112,16 +174,23 @@ export class MahjongGame {
       if (!this.room.players[id].isBot) {
         const state = {
           currentTurn: this.playerIds[this.currentTurnIndex],
+          dealer: this.playerIds[this.dealerIndex],
           hand: [...this.hands[id]],
           drawnTile: this.lastDrawnTile[id],
           melds: this.melds,
+          flowers: this.flowers,
           deckSize: this.deck.length,
           discards: this.discards,
+          pendingActionTile: this.pendingDiscard?.tile || null,
           possibleActions: this.waitingForActions[id] || [],
+          roundOver: !this.isRunning,
+          roundWinner: this.roundWinner,
+          nextRoundReady: this.nextRoundReady,
           players: this.playerIds.map(pid => ({
             id: pid,
             handSize: this.hands[pid].length + (this.lastDrawnTile[pid] ? 1 : 0),
-            isBot: this.room.players[pid].isBot
+            isBot: this.room.players[pid].isBot,
+            isDealer: pid === this.playerIds[this.dealerIndex]
           }))
         };
         this.io.to(id).emit('gameState', state);
@@ -129,21 +198,27 @@ export class MahjongGame {
     });
   }
 
-  private drawTile(playerId: string) {
+  private drawTile(playerId: string, fromTail: boolean = false) {
     if (!this.isRunning) return;
     if (this.deck.length === 0) {
-      this.io.to(this.room.id).emit('gameOver', { message: 'Draw' });
-      this.isRunning = false;
+      this.endRound(null);
       return;
     }
 
-    const tile = this.deck.pop()!;
+    const tile = fromTail ? this.deck.shift()! : this.deck.pop()!;
+    
+    if (this.isFlower(tile)) {
+      this.flowers[playerId].push(tile);
+      this.broadcastState();
+      setTimeout(() => this.drawTile(playerId, true), 800);
+      return;
+    }
+
     this.lastDrawnTile[playerId] = tile;
     this.broadcastState();
 
     if (this.checkWin(this.hands[playerId], tile)) {
-      this.io.to(this.room.id).emit('gameOver', { winner: playerId, type: 'Tsumo' });
-      this.isRunning = false;
+      this.endRound(playerId, 'Tsumo');
       return;
     }
 
@@ -155,9 +230,31 @@ export class MahjongGame {
     }
   }
 
+  private endRound(winnerId: string | null, type: string = '') {
+    this.isRunning = false;
+    this.roundWinner = winnerId;
+    
+    if (winnerId) {
+      const winnerIndex = this.playerIds.indexOf(winnerId);
+      if (winnerIndex !== this.dealerIndex) {
+        // Dealer loses, move dealer to right
+        this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
+      }
+      // If dealer wins, dealerIndex remains same
+      this.io.to(this.room.id).emit('gameOver', { winner: winnerId, type });
+    } else {
+      // Draw (流局), dealer passes
+      this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
+      this.io.to(this.room.id).emit('gameOver', { message: 'Draw' });
+    }
+    
+    this.broadcastState();
+  }
+
   public handleDiscard(playerId: string, tileIndex: number) {
     if (!this.isRunning) return;
     if (this.playerIds[this.currentTurnIndex] !== playerId) return;
+    if (this.pendingDiscard) return; 
 
     let discarded: string;
     if (tileIndex === -1) {
@@ -183,16 +280,25 @@ export class MahjongGame {
 
   private checkForInterruptions(tile: string, discarderId: string) {
     this.waitingForActions = {};
+    this.collectedActions = {};
     let anyoneCanAct = false;
+
+    const nextPlayerIndex = (this.playerIds.indexOf(discarderId) + 1) % this.playerIds.length;
+    const nextPlayerId = this.playerIds[nextPlayerIndex];
 
     this.playerIds.forEach(pid => {
       if (pid === discarderId) return;
 
       const actions: string[] = [];
+      if (this.checkWin(this.hands[pid], tile)) actions.push('WIN');
+
       const count = this.hands[pid].filter(t => t === tile).length;
-      
       if (count >= 2) actions.push('PONG');
       if (count === 3) actions.push('KONG');
+
+      if (pid === nextPlayerId && this.canChow(this.hands[pid], tile).length > 0) {
+        actions.push('CHOW');
+      }
 
       if (actions.length > 0) {
         this.waitingForActions[pid] = actions;
@@ -202,66 +308,101 @@ export class MahjongGame {
 
     if (anyoneCanAct) {
       this.broadcastState();
-      // Notify bots
       this.bots.forEach(bot => {
         if (this.waitingForActions[bot.id]) {
-          setTimeout(() => bot.handlePotentialAction(tile, this.waitingForActions[bot.id]), 1000);
+          setTimeout(() => bot.handlePotentialAction(tile, this.waitingForActions[bot.id]), 1500);
         }
       });
-
-      // Set timeout to proceed if no one acts
-      this.actionTimeout = setTimeout(() => this.proceedAfterNoAction(), 5000);
+      this.actionTimeout = setTimeout(() => this.resolveCollectedActions(), 8000);
     } else {
       this.proceedAfterNoAction();
     }
   }
 
+  private canChow(hand: string[], tile: string): string[][] {
+    if (tile.length !== 2) return []; 
+    const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+    const revMap = ['','一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    const val = valueMap[tile[0]];
+    const suit = tile[1];
+    if (!val) return [];
+    const possibleMelds: string[][] = [];
+    const h = new Set(hand);
+    if (val >= 3 && h.has(`${revMap[val-2]}${suit}`) && h.has(`${revMap[val-1]}${suit}`)) possibleMelds.push([`${revMap[val-2]}${suit}`, `${revMap[val-1]}${suit}`, tile]);
+    if (val >= 2 && val <= 8 && h.has(`${revMap[val-1]}${suit}`) && h.has(`${revMap[val+1]}${suit}`)) possibleMelds.push([`${revMap[val-1]}${suit}`, tile, `${revMap[val+1]}${suit}`]);
+    if (val <= 7 && h.has(`${revMap[val+1]}${suit}`) && h.has(`${revMap[val+2]}${suit}`)) possibleMelds.push([tile, `${revMap[val+1]}${suit}`, `${revMap[val+2]}${suit}`]);
+    return possibleMelds;
+  }
+
   public performAction(playerId: string, action: string | null) {
     if (!this.pendingDiscard) return;
-    if (this.actionTimeout) clearTimeout(this.actionTimeout);
+    this.collectedActions[playerId] = action;
+    if (Object.keys(this.collectedActions).length === Object.keys(this.waitingForActions).length) {
+      if (this.actionTimeout) clearTimeout(this.actionTimeout);
+      this.resolveCollectedActions();
+    }
+  }
 
-    if (action === 'PONG' || action === 'KONG') {
-      const tile = this.pendingDiscard.tile;
-      const hand = this.hands[playerId];
-      const count = action === 'PONG' ? 2 : 3;
-      
-      // Remove tiles from hand
-      for (let i = 0; i < count; i++) {
-        const idx = hand.indexOf(tile);
-        hand.splice(idx, 1);
+  private resolveCollectedActions() {
+    if (!this.pendingDiscard) return;
+    const tile = this.pendingDiscard.tile;
+    const priorities = ['WIN', 'KONG', 'PONG', 'CHOW'];
+    for (const actionType of priorities) {
+      const actingPlayers = Object.entries(this.collectedActions)
+        .filter(([_, action]) => action === actionType)
+        .map(([pid]) => pid);
+      if (actingPlayers.length > 0) {
+        this.executeAction(actingPlayers[0], actionType, tile);
+        return;
       }
-      
-      this.melds[playerId].push(new Array(count + 1).fill(tile));
-      this.waitingForActions = {};
-      this.pendingDiscard = null;
-      
-      // It becomes this player's turn
-      this.currentTurnIndex = this.playerIds.indexOf(playerId);
-      this.broadcastState();
+    }
+    this.proceedAfterNoAction();
+  }
 
+  private executeAction(playerId: string, action: string, tile: string) {
+    const hand = this.hands[playerId];
+    if (action === 'WIN') {
+      this.endRound(playerId, 'Ron');
+      return;
+    }
+
+    let isKong = false;
+    if (action === 'PONG' || action === 'KONG') {
+      const count = action === 'PONG' ? 2 : 3;
+      isKong = action === 'KONG';
+      for (let i = 0; i < count; i++) hand.splice(hand.indexOf(tile), 1);
+      this.melds[playerId].push(new Array(count + 1).fill(tile));
+    } else if (action === 'CHOW') {
+      const possible = this.canChow(hand, tile);
+      const meld = possible[0]; 
+      meld.forEach(t => { if (t !== tile) hand.splice(hand.indexOf(t), 1); });
+      this.melds[playerId].push(meld);
+    }
+
+    this.waitingForActions = {};
+    this.collectedActions = {};
+    this.pendingDiscard = null;
+    this.currentTurnIndex = this.playerIds.indexOf(playerId);
+    
+    if (isKong) {
+      this.broadcastState();
+      setTimeout(() => this.drawTile(playerId, true), 800);
+    } else {
+      this.broadcastState();
       if (this.room.players[playerId].isBot) {
         const bot = this.bots.find(b => b.id === playerId);
-        if (bot) bot.playTurn();
-      }
-    } else {
-      // Player skipped or invalid action
-      delete this.waitingForActions[playerId];
-      if (Object.keys(this.waitingForActions).length === 0) {
-        this.proceedAfterNoAction();
-      } else {
-        this.broadcastState();
+        if (bot) setTimeout(() => bot.playTurn(), 1000); 
       }
     }
   }
 
   private proceedAfterNoAction() {
     if (!this.pendingDiscard) return;
-    
     const { playerId, tile } = this.pendingDiscard;
     this.discards[playerId].push(tile);
     this.pendingDiscard = null;
     this.waitingForActions = {};
-
+    this.collectedActions = {};
     this.currentTurnIndex = (this.currentTurnIndex + 1) % this.playerIds.length;
     this.broadcastState();
     setTimeout(() => this.drawTile(this.playerIds[this.currentTurnIndex]), 500);
@@ -270,10 +411,8 @@ export class MahjongGame {
   private checkWin(hand: string[], extraTile?: string): boolean {
     const fullHand = extraTile ? [...hand, extraTile] : [...hand];
     if (fullHand.length % 3 !== 2) return false;
-    
     const counts: Record<string, number> = {};
     fullHand.forEach(t => counts[t] = (counts[t] || 0) + 1);
-    
     const tiles = Object.keys(counts);
     for (let i = 0; i < tiles.length; i++) {
       const pairTile = tiles[i];
@@ -289,22 +428,20 @@ export class MahjongGame {
   private canFormMelds(counts: Record<string, number>): boolean {
     const tiles = Object.keys(counts).filter(t => counts[t] > 0).sort((a, b) => this.getTileWeight(a) - this.getTileWeight(b));
     if (tiles.length === 0) return true;
-
     const first = tiles[0];
-    
     if (counts[first] >= 3) {
       const nextCounts = { ...counts };
       nextCounts[first] -= 3;
       if (this.canFormMelds(nextCounts)) return true;
     }
-
     const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+    const revMap = ['','一', '二', '三', '四', '五', '六', '七', '八', '九'];
     if (first.length === 2) {
       const val = valueMap[first[0]];
       const suit = first[1];
       if (val && val <= 7) {
-        const second = `${Object.keys(valueMap).find(key => valueMap[key] === val + 1)}${suit}`;
-        const third = `${Object.keys(valueMap).find(key => valueMap[key] === val + 2)}${suit}`;
+        const second = `${revMap[val+1]}${suit}`;
+        const third = `${revMap[val+2]}${suit}`;
         if (counts[second] > 0 && counts[third] > 0) {
           const nextCounts = { ...counts };
           nextCounts[first]--;

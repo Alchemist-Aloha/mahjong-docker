@@ -34,13 +34,13 @@ io.on('connection', (socket) => {
       rooms[roomId] = { id: roomId, players: {}, host: socket.id };
     }
     const room = rooms[roomId];
-    
+
     // Prevent joining if game already started
     if (room.game) {
       socket.emit('error', 'Game already started in this room.');
       return;
     }
-    
+
     // Prevent more than 4 human players
     if (Object.keys(room.players).length >= 4) {
       socket.emit('error', 'Room is full.');
@@ -49,7 +49,7 @@ io.on('connection', (socket) => {
 
     room.players[socket.id] = { id: socket.id, ready: false, isBot: false };
     socket.join(roomId);
-    
+
     const getCleanRoom = (r: Room) => {
       const clean = { ...r };
       delete clean.game;
@@ -64,11 +64,11 @@ io.on('connection', (socket) => {
     if (room && room.players[socket.id]) {
       room.players[socket.id].ready = !room.players[socket.id].ready;
       const getCleanRoom = (r: Room) => {
-      const clean = { ...r };
-      delete clean.game;
-      return clean;
-    };
-    io.to(roomId).emit('roomUpdate', getCleanRoom(room));
+        const clean = { ...r };
+        delete clean.game;
+        return clean;
+      };
+      io.to(roomId).emit('roomUpdate', getCleanRoom(room));
     }
   });
 
@@ -81,7 +81,7 @@ io.on('connection', (socket) => {
       }
 
       const humans = Object.values(room.players).filter(p => !p.isBot);
-      
+
       // Ensure all humans are ready
       const allReady = humans.every(p => p.ready);
       if (!allReady) {
@@ -97,13 +97,13 @@ io.on('connection', (socket) => {
       }
 
       const getCleanRoom = (r: Room) => {
-      const clean = { ...r };
-      delete clean.game;
-      return clean;
-    };
-    io.to(roomId).emit('roomUpdate', getCleanRoom(room));
+        const clean = { ...r };
+        delete clean.game;
+        return clean;
+      };
+      io.to(roomId).emit('roomUpdate', getCleanRoom(room));
       io.to(roomId).emit('gameStarted');
-      
+
       // Initialize Mahjong Game state machine
       room.game = new MahjongGame(io, room);
       room.game.start();
@@ -124,13 +124,20 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('nextRound', (roomId: string) => {
+    const room = rooms[roomId];
+    if (room && room.game) {
+      room.game.playerReadyForNextRound(socket.id);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('Player disconnected:', socket.id);
     for (const roomId in rooms) {
       const room = rooms[roomId];
       if (room.players[socket.id]) {
         delete room.players[socket.id];
-        
+
         // If room empty, destroy room
         const remainingHumans = Object.values(room.players).filter(p => !p.isBot);
         if (remainingHumans.length === 0) {
@@ -142,11 +149,11 @@ io.on('connection', (socket) => {
             room.host = remainingHumans[0].id;
           }
           const getCleanRoom = (r: Room) => {
-      const clean = { ...r };
-      delete clean.game;
-      return clean;
-    };
-    io.to(roomId).emit('roomUpdate', getCleanRoom(room));
+            const clean = { ...r };
+            delete clean.game;
+            return clean;
+          };
+          io.to(roomId).emit('roomUpdate', getCleanRoom(room));
         }
       }
     }

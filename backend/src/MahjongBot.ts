@@ -11,17 +11,21 @@ export class MahjongBot {
 
   public playTurn() {
     // Basic AI: discard a random tile for now
-    // We prioritize discarding tiles that don't form pairs or sequences if we had a more complex AI
     this.game.handleDiscard(this.id, 0);
   }
 
   public handlePotentialAction(tile: string, actions: string[]) {
-    // AI Strategy: Always Pong or Kong if possible to simplify the game
-    // In a real game, bots might choose to skip to keep their hand closed
-    if (actions.includes('KONG')) {
+    // AI Strategy: Win if possible, then Kong, then Pong, then Chow.
+    // In a more advanced AI, Chow/Pong might be skipped to keep the hand closed.
+    if (actions.includes('WIN')) {
+      this.game.performAction(this.id, 'WIN');
+    } else if (actions.includes('KONG')) {
       this.game.performAction(this.id, 'KONG');
     } else if (actions.includes('PONG')) {
       this.game.performAction(this.id, 'PONG');
+    } else if (actions.includes('CHOW')) {
+      // Bots will chow if it completes a sequence, just to keep the game active.
+      this.game.performAction(this.id, 'CHOW');
     } else {
       this.game.performAction(this.id, null);
     }

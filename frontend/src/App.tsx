@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-// Smart URL detection for reverse proxy support
-// If VITE_BACKEND_URL is set, use it.
-// Otherwise, if we're on a domain without a port (like mahjong.cai.co.im), use the current origin.
-// Fallback to the default development port 54321.
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  if (!window.location.port) return window.location.origin; // Likely a reverse proxy
+  if (!window.location.port) return window.location.origin; 
   return `http://${window.location.hostname}:54321`;
 };
 
@@ -18,6 +14,7 @@ interface Player {
   ready: boolean;
   isBot: boolean;
   handSize?: number;
+  isDealer?: boolean;
 }
 
 interface Room {
@@ -28,16 +25,21 @@ interface Room {
 
 interface GameState {
   currentTurn: string;
+  dealer: string;
   hand: string[];
   drawnTile: string | null;
   melds: Record<string, string[][]>;
+  flowers: Record<string, string[]>;
   deckSize: number;
   discards: Record<string, string[]>;
+  pendingActionTile: string | null;
   possibleActions: string[];
+  roundOver: boolean;
+  roundWinner: string | null;
+  nextRoundReady: Record<string, boolean>;
   players: Player[];
 }
 
-// SVG Mahjong Tile Component
 const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: boolean, onClick?: () => void, theme: 'light' | 'dark' }> = ({ name, size = 40, highlighted, onClick, theme }) => {
   const width = size;
   const height = size * 1.4;
@@ -73,6 +75,14 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
         '九': [[25, 20, 8], [50, 20, 8], [75, 20, 8], [25, 50, 8], [50, 50, 8], [75, 50, 8], [25, 80, 8], [50, 80, 8], [75, 80, 8]]
       }[value] || [];
       return dots.map(([x, y, r], i) => <circle key={i} cx={`${x}%`} cy={`${y}%`} r={`${r}%`} fill={i % 2 === 0 ? "#1976d2" : "#d32f2f"} />);
+    } else if (['春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'].includes(name)) {
+      const colors: Record<string, string> = { '春': '#f44336', '夏': '#4caf50', '秋': '#ff9800', '冬': '#2196f3', '梅': '#e91e63', '兰': '#9c27b0', '竹': '#2e7d32', '菊': '#ffc107' };
+      return (
+        <g>
+          <rect x="15%" y="15%" width="70%" height="70%" rx="5" fill="none" stroke={colors[name]} strokeWidth="2" strokeDasharray="2,2" />
+          <text x="50%" y="55%" fontSize={width * 0.6} textAnchor="middle" dominantBaseline="middle" fill={colors[name]} fontWeight="bold">{name}</text>
+        </g>
+      );
     } else {
       let color = theme === 'dark' ? "#ddd" : "#333";
       if (name === "红中") color = "#d32f2f";
@@ -147,7 +157,7 @@ const App: React.FC = () => {
 
     newSocket.on('gameOver', (data: any) => {
       if (data.winner) {
-        setGameOver(`胜利者: ${data.winner === newSocket.id ? '你' : data.winner} (${data.type === 'Tsumo' ? '自摸' : '荣和'})`);
+        setGameOver(`胜利者: ${data.winner === newSocket.id ? '你' : data.winner} (${data.type === 'Ron' ? '点炮荣' : '自摸'})`);
       } else {
         setGameOver(`游戏结束: ${data.message === 'Draw' ? '流局' : data.message}`);
       }
@@ -181,6 +191,12 @@ const App: React.FC = () => {
   const startGame = () => {
     if (socket && joinedRoom) {
       socket.emit('startGame', joinedRoom.id);
+    }
+  };
+
+  const nextRound = () => {
+    if (socket && joinedRoom) {
+      socket.emit('nextRound', joinedRoom.id);
     }
   };
 
@@ -314,10 +330,19 @@ const App: React.FC = () => {
               <span className="card" style={{ padding: '5px 12px', margin: 0 }}>剩余: {gameState.deckSize} 张</span>
             </div>
 
-            {gameOver && (
-              <div className="card" style={{ backgroundColor: 'var(--accent-glow)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold' }}>
-                <div style={{ fontSize: '20px', marginBottom: '10px' }}>{gameOver}</div>
-                <button onClick={() => setGameState(null)}>返回大厅</button>
+            {gameState.roundOver && (
+              <div className="card" style={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2000, width: '90%', maxWidth: '400px', color: '#fff' }}>
+                <div style={{ fontSize: '24px', marginBottom: '20px' }}>{gameOver}</div>
+                <div style={{ marginBottom: '20px' }}>
+                  {gameState.players.map(p => (
+                    <div key={p.id} style={{ fontSize: '14px', marginBottom: '5px' }}>
+                      {p.id === socket?.id ? '你' : `玩家 ${p.id.substring(0, 5)}`}: {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中...'}
+                    </div>
+                  ))}
+                </div>
+                {!gameState.nextRoundReady[socket?.id || ''] && (
+                  <button onClick={nextRound} style={{ backgroundColor: 'var(--button-success)', color: '#fff', width: '100%', fontSize: '20px' }}>进入下一轮</button>
+                )}
               </div>
             )}
 
@@ -329,12 +354,20 @@ const App: React.FC = () => {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span style={{ fontWeight: p.id === gameState.currentTurn ? 'bold' : 'normal' }}>
+                      {p.isDealer && <span style={{ backgroundColor: '#ff5252', color: '#fff', padding: '2px 4px', borderRadius: '4px', marginRight: '5px', fontSize: '12px' }}>庄</span>}
                       {p.id === socket?.id ? '【你】' : `玩家: ${p.id.substring(0, 5)}...`} {p.isBot && '(电脑)'}
                     </span>
                     <span style={{ fontSize: '12px', opacity: 0.8 }}>手牌: {p.handSize}</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '10px', minHeight: '30px' }}>
+                    {gameState.flowers[p.id]?.length > 0 && (
+                      <div style={{ display: 'flex', gap: '2px', border: '1px solid #ffccbc', padding: '2px', borderRadius: '4px', backgroundColor: '#fffbe6', marginRight: '5px' }}>
+                        {gameState.flowers[p.id].map((tile, fIdx) => (
+                          <MahjongTileSVG key={fIdx} name={tile} size={20} theme={theme} />
+                        ))}
+                      </div>
+                    )}
                     {gameState.melds[p.id]?.map((meld, mIdx) => (
                       <div key={mIdx} style={{ display: 'flex', gap: '1px', border: '1px solid var(--border-color)', padding: '1px', borderRadius: '2px' }}>
                         {meld.map((tile, tIdx) => (
@@ -349,20 +382,34 @@ const App: React.FC = () => {
                       <MahjongTileSVG key={idx} name={tile} size={26} theme={theme} />
                     ))}
                   </div>
-                  {p.id === gameState.currentTurn && <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>出牌中</div>}
+                  {p.id === gameState.currentTurn && !gameState.roundOver && <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>出牌中</div>}
                 </div>
               ))}
             </div>
 
             {gameState.possibleActions.length > 0 && (
-              <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--card-bg)', padding: '12px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 100, display: 'flex', gap: '12px', border: '1px solid var(--accent-color)' }}>
-                {gameState.possibleActions.includes('PONG') && (
-                  <button onClick={() => performAction('PONG')} style={{ backgroundColor: '#ff9800', color: '#fff' }}>碰</button>
+              <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--card-bg)', padding: '15px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', border: '2px solid var(--accent-color)' }}>
+                {gameState.pendingActionTile && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '5px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>对手打出: </span>
+                    <MahjongTileSVG name={gameState.pendingActionTile} size={40} theme={theme} highlighted />
+                  </div>
                 )}
-                {gameState.possibleActions.includes('KONG') && (
-                  <button onClick={() => performAction('KONG')} style={{ backgroundColor: '#e91e63', color: '#fff' }}>杠</button>
-                )}
-                <button onClick={() => performAction(null)} style={{ backgroundColor: '#9e9e9e', color: '#fff' }}>跳过</button>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {gameState.possibleActions.includes('WIN') && (
+                    <button onClick={() => performAction('WIN')} style={{ backgroundColor: '#ff5252', color: '#fff' }}>胡</button>
+                  )}
+                  {gameState.possibleActions.includes('KONG') && (
+                    <button onClick={() => performAction('KONG')} style={{ backgroundColor: '#e91e63', color: '#fff' }}>杠</button>
+                  )}
+                  {gameState.possibleActions.includes('PONG') && (
+                    <button onClick={() => performAction('PONG')} style={{ backgroundColor: '#ff9800', color: '#fff' }}>碰</button>
+                  )}
+                  {gameState.possibleActions.includes('CHOW') && (
+                    <button onClick={() => performAction('CHOW')} style={{ backgroundColor: '#4caf50', color: '#fff' }}>吃</button>
+                  )}
+                  <button onClick={() => performAction(null)} style={{ backgroundColor: '#9e9e9e', color: '#fff' }}>跳过</button>
+                </div>
               </div>
             )}
 
@@ -395,7 +442,7 @@ const App: React.FC = () => {
                     </>
                   )}
                 </div>
-                {gameState.currentTurn === socket?.id && !gameOver && (
+                {gameState.currentTurn === socket?.id && !gameState.roundOver && (
                   <p style={{ color: 'var(--accent-color)', fontWeight: 'bold', margin: '5px 0 0', fontSize: '14px', textAlign: 'center' }}>轮到你了，点击牌面打出</p>
                 )}
               </div>
