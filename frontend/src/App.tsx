@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:4000';
+const SOCKET_URL = 'http://localhost:54321';
 
 interface Player {
   id: string;
