@@ -250,7 +250,7 @@ export class MahjongGame {
       if (type === 'Tsumo') {
         this.playerIds.forEach(pid => {
           if (pid !== winnerId) {
-            const pay = fans + 8;
+            const pay = fans + 0;
             this.room.players[pid].totalScore -= pay;
             this.room.players[winnerId].totalScore += pay;
           }
@@ -260,7 +260,7 @@ export class MahjongGame {
         const discarderId = this.pendingDiscard!.playerId;
         this.playerIds.forEach(pid => {
           if (pid !== winnerId) {
-            const pay = (pid === discarderId) ? (fans + 8) : 8;
+            const pay = (pid === discarderId) ? (fans + 0) : 0;
             this.room.players[pid].totalScore -= pay;
             this.room.players[winnerId].totalScore += pay;
           }
