@@ -1,6 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import MahjongTile from './components/MahjongTile';
+import { Player, Room, GameState, GameOverData } from './types';
+import GameBoard from './components/GameBoard';
+import PlayerHand from './components/PlayerHand';
+import ActionButtons from './components/ActionButtons';
+import GameOverModal from './components/GameOverModal';
+import RoomLobby from './components/RoomLobby';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
@@ -20,55 +25,6 @@ const getUserId = () => {
 };
 
 const userId = getUserId();
-
-interface Player {
-  id: string;
-  name: string;
-  ready: boolean;
-  isBot: boolean;
-  isOnline: boolean;
-  totalScore: number;
-  handSize?: number;
-  isDealer?: boolean;
-}
-
-interface Room {
-  id: string;
-  players: Record<string, Player>;
-  host: string;
-}
-
-interface FanResult {
-  name: string;
-  points: number;
-}
-
-interface GameOverData {
-  winner?: string;
-  type?: string;
-  message?: string;
-  score?: {
-    total: number;
-    fans: FanResult[];
-  };
-}
-
-interface GameState {
-  currentTurn: string;
-  dealer: string;
-  hand: string[];
-  drawnTile: string | null;
-  melds: Record<string, string[][]>;
-  flowers: Record<string, string[]>;
-  deckSize: number;
-  discards: Record<string, string[]>;
-  pendingActionTile: string | null;
-  possibleActions: string[];
-  roundOver: boolean;
-  roundWinner: string | null;
-  nextRoundReady: Record<string, boolean>;
-  players: Player[];
-}
 
 const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -258,9 +214,6 @@ const App: React.FC = () => {
       .grid {
         grid-template-columns: 1fr;
       }
-      .mahjong-tile {
-        transform: scale(0.9);
-      }
     }
   `;
 
@@ -300,195 +253,38 @@ const App: React.FC = () => {
             </div>
 
             {gameState.roundOver && gameOverInfo && (
-              <div className="card" style={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2000, width: '90%', maxWidth: '450px', color: '#fff', maxHeight: '85vh', overflowY: 'auto', padding: '25px' }}>
-                <div style={{ fontSize: '28px', color: 'var(--accent-color)', marginBottom: '10px' }}>
-                  {gameOverInfo.winner ? (gameState.players.find(p => p.id === gameOverInfo.winner)?.name + ' 赢了！') : '流局'}
-                </div>
-                
-                {gameOverInfo.winner && gameOverInfo.score && (
-                  <div style={{ marginBottom: '20px', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '10px', padding: '15px', backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '18px', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
-                      {gameOverInfo.type === 'Ron' ? '点炮荣' : '自摸'} - {gameOverInfo.score.total} 番
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                      {gameOverInfo.score.fans.map((f, i) => (
-                        <div key={i} style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', border: '1px solid var(--accent-color)', borderRadius: '4px', padding: '4px 8px', fontSize: '14px' }}>
-                          {f.name} <span style={{ color: '#ffeb3b' }}>+{f.points}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {gameOverInfo.message && <div style={{ fontSize: '20px', marginBottom: '20px' }}>{gameOverInfo.message}</div>}
-
-                <div style={{ marginBottom: '25px' }}>
-                  <div style={{ fontSize: '14px', opacity: 0.7, marginBottom: '10px' }}>确认就绪以开始下一轮</div>
-                  {gameState.players.map(p => (
-                    <div key={p.id} style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-                      <span>{p.name} (总分: {p.totalScore})</span>
-                      <span style={{ color: gameState.nextRoundReady[p.id] || p.isBot ? '#4caf50' : '#ff5252' }}>
-                        {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                
-                {!gameState.nextRoundReady[userId] && (
-                  <button onClick={nextRound} style={{ backgroundColor: 'var(--button-success)', color: '#fff', width: '100%', fontSize: '22px', padding: '15px' }}>进入下一轮</button>
-                )}
-              </div>
+              <GameOverModal 
+                gameState={gameState} 
+                gameOverInfo={gameOverInfo} 
+                userId={userId} 
+                onNextRound={nextRound} 
+              />
             )}
 
-            <div className="grid">
-              {gameState.players.map(p => (
-                <div key={p.id} className="card" style={{ 
-                  border: p.id === gameState.currentTurn ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
-                  position: 'relative',
-                  opacity: p.isOnline || p.isBot ? 1 : 0.6
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: p.id === gameState.currentTurn ? 'bold' : 'normal' }}>
-                      {p.isDealer && <span style={{ backgroundColor: '#ff5252', color: '#fff', padding: '2px 4px', borderRadius: '4px', marginRight: '5px', fontSize: '12px' }}>庄</span>}
-                      {p.id === userId && <span style={{ color: 'var(--accent-color)', marginRight: '3px' }}>【你】</span>}
-                      {p.name} {p.isBot && '(电脑)'}
-                      {!p.isOnline && !p.isBot && <span style={{ fontSize: '10px', color: '#ff5252', marginLeft: '5px' }}>(离线)</span>}
-                    </span>
-                    <span style={{ fontSize: '12px', opacity: 0.8 }}>总分: {p.totalScore} | 手牌: {p.handSize}</span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '10px', minHeight: '30px' }}>
-                    {gameState.flowers[p.id]?.length > 0 && (
-                      <div style={{ display: 'flex', gap: '2px', border: '1px solid #ffccbc', padding: '2px', borderRadius: '4px', backgroundColor: '#fffbe6', marginRight: '5px' }}>
-                        {gameState.flowers[p.id].map((tile, fIdx) => (
-                          <MahjongTile key={fIdx} name={tile} size={20} theme={theme} />
-                        ))}
-                      </div>
-                    )}
-                    {gameState.melds[p.id]?.map((meld, mIdx) => (
-                      <div key={mIdx} style={{ display: 'flex', gap: '1px', border: '1px solid var(--border-color)', padding: '1px', borderRadius: '2px' }}>
-                        {meld.map((tile, tIdx) => (
-                          <MahjongTile key={tIdx} name={tile} size={22} theme={theme} />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+            <GameBoard gameState={gameState} userId={userId} theme={theme} />
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
-                    {gameState.discards[p.id]?.map((tile, idx) => (
-                      <MahjongTile key={idx} name={tile} size={26} theme={theme} />
-                    ))}
-                  </div>
-                  {p.id === gameState.currentTurn && !gameState.roundOver && <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>出牌中</div>}
-                </div>
-              ))}
-            </div>
+            <ActionButtons gameState={gameState} theme={theme} onAction={performAction} />
 
-            {gameState.possibleActions.length > 0 && (
-              <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--card-bg)', padding: '15px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', border: '2px solid var(--accent-color)' }}>
-                {gameState.pendingActionTile && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '5px' }}>
-                    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>对手打出: </span>
-                    <MahjongTile name={gameState.pendingActionTile} size={40} theme={theme} highlighted />
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {gameState.possibleActions.includes('WIN') && (
-                    <button onClick={() => performAction('WIN')} style={{ backgroundColor: '#ff5252', color: '#fff' }}>胡</button>
-                  )}
-                  {gameState.possibleActions.includes('KONG') && (
-                    <button onClick={() => performAction('KONG')} style={{ backgroundColor: '#e91e63', color: '#fff' }}>杠</button>
-                  )}
-                  {gameState.possibleActions.includes('PONG') && (
-                    <button onClick={() => performAction('PONG')} style={{ backgroundColor: '#ff9800', color: '#fff' }}>碰</button>
-                  )}
-                  {gameState.possibleActions.includes('CHOW') && (
-                    <button onClick={() => performAction('CHOW')} style={{ backgroundColor: '#4caf50', color: '#fff' }}>吃</button>
-                  )}
-                  <button onClick={() => performAction(null)} style={{ backgroundColor: '#9e9e9e', color: '#fff' }}>跳过</button>
-                </div>
-              </div>
-            )}
-
-            <div style={{ position: 'fixed', bottom: '0', left: '0', right: '0', backgroundColor: 'var(--card-bg)', padding: '15px 10px 30px', borderTop: '1px solid var(--border-color)', zIndex: 50, boxShadow: '0 -4px 12px rgba(0,0,0,0.1)' }}>
-              <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-                <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>你的手牌</h3>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {gameState.hand.map((tile, idx) => (
-                      <MahjongTile 
-                        key={idx} 
-                        name={tile} 
-                        size={44} 
-                        theme={theme}
-                        onClick={() => discardTile(idx)} 
-                      />
-                    ))}
-                  </div>
-                  
-                  {gameState.drawnTile && (
-                    <>
-                      <div style={{ width: '1px', height: '40px', backgroundColor: 'var(--border-color)', margin: '0 5px' }}></div>
-                      <MahjongTile 
-                        name={gameState.drawnTile} 
-                        size={44} 
-                        theme={theme}
-                        highlighted 
-                        onClick={discardDrawnTile} 
-                      />
-                    </>
-                  )}
-                </div>
-                {gameState.currentTurn === userId && !gameState.roundOver && (
-                  <p style={{ color: 'var(--accent-color)', fontWeight: 'bold', margin: '5px 0 0', fontSize: '14px', textAlign: 'center' }}>轮到你了，点击牌面打出</p>
-                )}
-              </div>
-            </div>
+            <PlayerHand 
+              gameState={gameState} 
+              userId={userId} 
+              theme={theme} 
+              onDiscard={discardTile} 
+              onDiscardDrawn={discardDrawnTile} 
+            />
           </div>
         ) : (
-          <div className="card" style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h2 style={{ margin: 0 }}>房间: {joinedRoom.id}</h2>
-              <button onClick={leaveRoom} style={{ backgroundColor: '#ff5252', color: '#fff', padding: '5px 10px', fontSize: '12px' }}>离开房间</button>
-            </div>
-            
-            <div className="card" style={{ padding: '10px', marginBottom: '20px' }}>
-              <div style={{ marginBottom: '10px', fontSize: '14px', opacity: 0.8 }}>修改你的昵称:</div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  type="text" 
-                  value={playerName} 
-                  onChange={(e) => setPlayerName(e.target.value)} 
-                  placeholder="输入昵称"
-                  style={{ flex: 1 }}
-                />
-                <button onClick={handleUpdateName} style={{ backgroundColor: 'var(--button-primary)', color: '#fff', padding: '8px 15px' }}>确定</button>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              {Object.values(joinedRoom.players).map((p) => (
-                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: p.isOnline || p.isBot ? 1 : 0.6 }}>
-                  <span>
-                    {p.id === userId ? <strong>【你】{p.name}</strong> : p.name}
-                    {!p.isOnline && !p.isBot && <span style={{ fontSize: '12px', color: '#ff5252', marginLeft: '5px' }}>(离线)</span>}
-                  </span>
-                  <span style={{ color: p.ready ? 'var(--accent-color)' : '#ff5252', fontWeight: 'bold' }}>{p.ready ? '已准备' : '未准备'}</span>
-                </div>
-              ))}
-            </div>
-            
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={toggleReady} style={{ backgroundColor: 'var(--button-primary)', color: '#fff' }}>
-                {joinedRoom.players[userId]?.ready ? '取消准备' : '准备游戏'}
-              </button>
-              
-              {joinedRoom.host === userId && (
-                <button onClick={startGame} style={{ backgroundColor: 'var(--button-success)', color: '#fff' }}>开始游戏</button>
-              )}
-            </div>
-            {error && <p style={{ color: '#ff5252', marginTop: '15px' }}>{error}</p>}
-          </div>
+          <RoomLobby 
+            joinedRoom={joinedRoom}
+            userId={userId}
+            playerName={playerName}
+            setPlayerName={setPlayerName}
+            onUpdateName={handleUpdateName}
+            onToggleReady={toggleReady}
+            onStartGame={startGame}
+            onLeaveRoom={leaveRoom}
+            error={error}
+          />
         )}
       </div>
     </>
