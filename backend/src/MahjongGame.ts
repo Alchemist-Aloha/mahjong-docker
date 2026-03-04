@@ -185,6 +185,8 @@ export class MahjongGame {
           nextRoundReady: this.nextRoundReady,
           players: this.playerIds.map(pid => ({
             id: pid,
+            name: this.room.players[pid].name,
+            totalScore: this.room.players[pid].totalScore,
             handSize: this.hands[pid].length + (this.lastDrawnTile[pid] ? 1 : 0),
             isBot: this.room.players[pid].isBot,
             isDealer: pid === this.playerIds[this.dealerIndex]
@@ -239,7 +241,30 @@ export class MahjongGame {
     this.roundWinner = winnerId;
     
     if (winnerId) {
+      const fans = scoreResult.total;
       const winnerIndex = this.playerIds.indexOf(winnerId);
+      
+      // Points exchange
+      if (type === 'Tsumo') {
+        this.playerIds.forEach(pid => {
+          if (pid !== winnerId) {
+            const pay = fans + 8;
+            this.room.players[pid].totalScore -= pay;
+            this.room.players[winnerId].totalScore += pay;
+          }
+        });
+      } else {
+        // Ron
+        const discarderId = this.pendingDiscard!.playerId;
+        this.playerIds.forEach(pid => {
+          if (pid !== winnerId) {
+            const pay = (pid === discarderId) ? (fans + 8) : 8;
+            this.room.players[pid].totalScore -= pay;
+            this.room.players[winnerId].totalScore += pay;
+          }
+        });
+      }
+
       if (winnerIndex !== this.dealerIndex) {
         this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
       }
@@ -292,7 +317,7 @@ export class MahjongGame {
 
       const actions: string[] = [];
       const scoreResult = this.calculateScore(pid, tile, false);
-      if (scoreResult && scoreResult.total >= 8) actions.push('WIN');
+      if (scoreResult) actions.push('WIN'); // Temporarily removed >= 8 check
 
       const count = this.hands[pid].filter(t => t === tile).length;
       if (count >= 2) actions.push('PONG');

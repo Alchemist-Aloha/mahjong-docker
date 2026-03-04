@@ -11,8 +11,10 @@ const SOCKET_URL = getSocketUrl();
 
 interface Player {
   id: string;
+  name: string;
   ready: boolean;
   isBot: boolean;
+  totalScore: number;
   handSize?: number;
   isDealer?: boolean;
 }
@@ -140,6 +142,7 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
 const App: React.FC = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [roomId, setRoomId] = useState('');
+  const [playerName, setPlayerName] = useState('');
   const [joinedRoom, setJoinedRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState('');
@@ -159,6 +162,9 @@ const App: React.FC = () => {
 
     newSocket.on('roomUpdate', (room: Room) => {
       setJoinedRoom(room);
+      if (room.players[newSocket.id]) {
+        setPlayerName(room.players[newSocket.id].name);
+      }
     });
 
     newSocket.on('gameStarted', () => {
@@ -190,6 +196,12 @@ const App: React.FC = () => {
   const joinRoom = () => {
     if (socket && roomId) {
       socket.emit('joinRoom', roomId);
+    }
+  };
+
+  const handleUpdateName = () => {
+    if (socket && joinedRoom && playerName) {
+      socket.emit('updateName', { roomId: joinedRoom.id, name: playerName });
     }
   };
 
@@ -344,7 +356,7 @@ const App: React.FC = () => {
             {gameState.roundOver && gameOverInfo && (
               <div className="card" style={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 2000, width: '90%', maxWidth: '450px', color: '#fff', maxHeight: '85vh', overflowY: 'auto', padding: '25px' }}>
                 <div style={{ fontSize: '28px', color: 'var(--accent-color)', marginBottom: '10px' }}>
-                  {gameOverInfo.winner ? (gameOverInfo.winner === socket?.id ? '🎉 你赢了！' : '游戏结束') : '流局'}
+                  {gameOverInfo.winner ? (gameState.players.find(p => p.id === gameOverInfo.winner)?.name + ' 赢了！') : '流局'}
                 </div>
                 
                 {gameOverInfo.winner && gameOverInfo.score && (
@@ -368,7 +380,7 @@ const App: React.FC = () => {
                   <div style={{ fontSize: '14px', opacity: 0.7, marginBottom: '10px' }}>确认就绪以开始下一轮</div>
                   {gameState.players.map(p => (
                     <div key={p.id} style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-                      <span>{p.id === socket?.id ? '你' : `玩家 ${p.id.substring(0, 5)}`}</span>
+                      <span>{p.name} (总分: {p.totalScore})</span>
                       <span style={{ color: gameState.nextRoundReady[p.id] || p.isBot ? '#4caf50' : '#ff5252' }}>
                         {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中'}
                       </span>
@@ -391,9 +403,9 @@ const App: React.FC = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <span style={{ fontWeight: p.id === gameState.currentTurn ? 'bold' : 'normal' }}>
                       {p.isDealer && <span style={{ backgroundColor: '#ff5252', color: '#fff', padding: '2px 4px', borderRadius: '4px', marginRight: '5px', fontSize: '12px' }}>庄</span>}
-                      {p.id === socket?.id ? '【你】' : `玩家: ${p.id.substring(0, 5)}...`} {p.isBot && '(电脑)'}
+                      {p.name} {p.isBot && '(电脑)'}
                     </span>
-                    <span style={{ fontSize: '12px', opacity: 0.8 }}>手牌: {p.handSize}</span>
+                    <span style={{ fontSize: '12px', opacity: 0.8 }}>总分: {p.totalScore} | 手牌: {p.handSize}</span>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '10px', minHeight: '30px' }}>
@@ -487,10 +499,25 @@ const App: React.FC = () => {
         ) : (
           <div className="card" style={{ textAlign: 'center' }}>
             <h2>房间: {joinedRoom.id}</h2>
+            
+            <div className="card" style={{ padding: '10px', marginBottom: '20px' }}>
+              <div style={{ marginBottom: '10px', fontSize: '14px', opacity: 0.8 }}>修改你的昵称:</div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={playerName} 
+                  onChange={(e) => setPlayerName(e.target.value)} 
+                  placeholder="输入昵称"
+                  style={{ flex: 1 }}
+                />
+                <button onClick={handleUpdateName} style={{ backgroundColor: 'var(--button-primary)', color: '#fff', padding: '8px 15px' }}>确定</button>
+              </div>
+            </div>
+
             <div style={{ marginBottom: '20px' }}>
               {Object.values(joinedRoom.players).map((p) => (
                 <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>{p.id === socket?.id ? <strong>你 ({p.id.substring(0, 6)})</strong> : `玩家: ${p.id.substring(0, 6)}`}</span>
+                  <span>{p.id === socket?.id ? <strong>【你】{p.name}</strong> : p.name}</span>
                   <span style={{ color: p.ready ? 'var(--accent-color)' : '#ff5252', fontWeight: 'bold' }}>{p.ready ? '已准备' : '未准备'}</span>
                 </div>
               ))}
