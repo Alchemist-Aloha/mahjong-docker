@@ -102,6 +102,9 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
       );
     } else {
       let color = theme === 'dark' ? "#ddd" : "#333";
+      if (['东风', '南风', '西风', '北风'].includes(name)) {
+        color = "#000";
+      }
       if (name === "红中") color = "#d32f2f";
       if (name === "发财") color = "#2e7d32";
       if (name === "白板") {
