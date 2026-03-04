@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = `http://${window.location.hostname}:54321`;
+// Smart URL detection for reverse proxy support
+// If VITE_BACKEND_URL is set, use it.
+// Otherwise, if we're on a domain without a port (like mahjong.cai.co.im), use the current origin.
+// Fallback to the default development port 54321.
+const getSocketUrl = () => {
+  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
+  if (!window.location.port) return window.location.origin; // Likely a reverse proxy
+  return `http://${window.location.hostname}:54321`;
+};
+
+const SOCKET_URL = getSocketUrl();
 
 interface Player {
   id: string;
@@ -28,7 +38,7 @@ interface GameState {
 }
 
 // SVG Mahjong Tile Component
-const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: boolean, onClick?: () => void }> = ({ name, size = 40, highlighted, onClick }) => {
+const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: boolean, onClick?: () => void, theme: 'light' | 'dark' }> = ({ name, size = 40, highlighted, onClick, theme }) => {
   const width = size;
   const height = size * 1.4;
   
@@ -36,7 +46,6 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
     const value = name[0];
     const suit = name[1];
     
-    // Simplistic SVG generation based on tile name
     if (suit === '万') {
       return (
         <g>
@@ -65,8 +74,7 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
       }[value] || [];
       return dots.map(([x, y, r], i) => <circle key={i} cx={`${x}%`} cy={`${y}%`} r={`${r}%`} fill={i % 2 === 0 ? "#1976d2" : "#d32f2f"} />);
     } else {
-      // Winds and Dragons
-      let color = "#333";
+      let color = theme === 'dark' ? "#ddd" : "#333";
       if (name === "红中") color = "#d32f2f";
       if (name === "发财") color = "#2e7d32";
       if (name === "白板") {
@@ -81,8 +89,8 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
       onClick={onClick}
       style={{ 
         width, height, 
-        backgroundColor: '#fff', 
-        border: highlighted ? '2px solid #4caf50' : '1px solid #333',
+        backgroundColor: theme === 'dark' ? '#f5f5f5' : '#fff', 
+        border: highlighted ? '2px solid var(--accent-color)' : `1px solid ${theme === 'dark' ? '#999' : '#333'}`,
         borderRadius: '4px',
         display: 'flex',
         flexDirection: 'column',
@@ -90,16 +98,16 @@ const MahjongTileSVG: React.FC<{ name: string, size?: number, highlighted?: bool
         justifyContent: 'space-between',
         padding: '2px',
         cursor: onClick ? 'pointer' : 'default',
-        boxShadow: highlighted ? '0 0 8px rgba(76, 175, 80, 0.6)' : '0 2px 4px rgba(0,0,0,0.1)',
+        boxShadow: highlighted ? '0 0 8px var(--accent-glow)' : '0 2px 4px rgba(0,0,0,0.2)',
         userSelect: 'none',
-        transition: 'transform 0.1s'
+        transition: 'transform 0.1s, background-color 0.3s',
+        flexShrink: 0
       }}
-      className="mahjong-tile"
     >
       <svg width="100%" height="80%" viewBox="0 0 100 100">
         {renderContent()}
       </svg>
-      <span style={{ fontSize: '10px', color: '#666', fontWeight: 'normal' }}>{name}</span>
+      <span style={{ fontSize: '9px', color: '#333', fontWeight: 'normal' }}>{name}</span>
     </div>
   );
 };
@@ -111,6 +119,14 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState('');
   const [gameOver, setGameOver] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL);
@@ -186,163 +202,231 @@ const App: React.FC = () => {
     }
   };
 
-  if (!joinedRoom) {
-    return (
-      <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'sans-serif' }}>
-        <h1>麻将 Docker 版</h1>
-        <div style={{ marginBottom: '20px' }}>
-          <input 
-            type="text" 
-            value={roomId} 
-            onChange={(e) => setRoomId(e.target.value)} 
-            placeholder="输入房间号"
-            style={{ padding: '10px', fontSize: '16px' }}
-          />
-          <button onClick={joinRoom} style={{ padding: '10px 20px', fontSize: '16px', marginLeft: '10px' }}>加入/创建房间</button>
+  const theme = isDarkMode ? 'dark' : 'light';
+
+  const commonStyles = `
+    :root {
+      --bg-color: #f0f0f0;
+      --card-bg: #fff;
+      --text-color: #333;
+      --border-color: #ccc;
+      --accent-color: #4caf50;
+      --accent-glow: rgba(76, 175, 80, 0.6);
+      --button-primary: #2196f3;
+      --button-success: #4caf50;
+    }
+    [data-theme='dark'] {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333;
+      --accent-color: #81c784;
+      --accent-glow: rgba(129, 199, 132, 0.4);
+      --button-primary: #1976d2;
+      --button-success: #388e3c;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 15px;
+    }
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      margin-bottom: 15px;
+    }
+    button {
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 16px;
+      touch-action: manipulation;
+    }
+    input {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      .mahjong-tile {
+        transform: scale(0.9);
+      }
+    }
+  `;
+
+  return (
+    <>
+      <style>{commonStyles}</style>
+      <div className="container">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px' }}>麻将 Docker</h1>
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)} 
+            style={{ backgroundColor: 'transparent', color: 'var(--text-color)', border: '1px solid var(--border-color)', padding: '8px 12px', fontSize: '14px' }}
+          >
+            {isDarkMode ? '☀️ 明亮' : '🌙 暗黑'}
+          </button>
         </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-      </div>
-    );
-  }
 
-  if (gameState) {
-    return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#f0f0f0', minHeight: '100vh', paddingBottom: '220px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>房间: {joinedRoom.id}</h2>
-          <div style={{ padding: '10px', backgroundColor: '#fff', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-            <strong>剩余牌数: {gameState.deckSize}</strong>
+        {!joinedRoom ? (
+          <div className="card" style={{ textAlign: 'center', marginTop: '40px' }}>
+            <h2>加入或创建房间</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '300px', margin: '0 auto' }}>
+              <input 
+                type="text" 
+                value={roomId} 
+                onChange={(e) => setRoomId(e.target.value)} 
+                placeholder="输入房间号"
+              />
+              <button onClick={joinRoom} style={{ backgroundColor: 'var(--button-primary)', color: '#fff' }}>进入房间</button>
+            </div>
+            {error && <p style={{ color: '#ff5252', marginTop: '15px' }}>{error}</p>}
           </div>
-        </div>
+        ) : gameState ? (
+          <div style={{ paddingBottom: '180px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <span className="card" style={{ padding: '5px 12px', margin: 0 }}>房号: {joinedRoom.id}</span>
+              <span className="card" style={{ padding: '5px 12px', margin: 0 }}>剩余: {gameState.deckSize} 张</span>
+            </div>
 
-        {gameOver && (
-          <div style={{ padding: '20px', backgroundColor: '#ffeb3b', textAlign: 'center', fontWeight: 'bold', fontSize: '24px', marginBottom: '20px', borderRadius: '10px', zIndex: 1000, position: 'relative' }}>
-            {gameOver}
-            <button onClick={() => setGameState(null)} style={{ marginLeft: '20px' }}>返回房间</button>
-          </div>
-        )}
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', marginBottom: '40px' }}>
-          {gameState.players.map(p => (
-            <div key={p.id} style={{ 
-              border: p.id === gameState.currentTurn ? '3px solid #4caf50' : '1px solid #ccc', 
-              padding: '15px', 
-              backgroundColor: '#fff',
-              borderRadius: '8px',
-              position: 'relative'
-            }}>
-              <h4 style={{ margin: '0 0 10px 0' }}>
-                {p.id === socket?.id ? '【你】' : `玩家: ${p.id.substring(0, 5)}...`} {p.isBot && '(电脑)'}
-                {p.id === gameState.currentTurn && ' 👈 正在出牌'}
-              </h4>
-              <p>手牌数: {p.handSize}</p>
-              
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ display: 'flex', gap: '5px', marginTop: '5px', flexWrap: 'wrap' }}>
-                  {gameState.melds[p.id]?.map((meld, mIdx) => (
-                    <div key={mIdx} style={{ display: 'flex', gap: '2px', border: '1px solid #eee', padding: '2px' }}>
-                      {meld.map((tile, tIdx) => (
-                        <MahjongTileSVG key={tIdx} name={tile} size={25} />
-                      ))}
-                    </div>
-                  ))}
-                </div>
+            {gameOver && (
+              <div className="card" style={{ backgroundColor: 'var(--accent-glow)', border: '2px solid var(--accent-color)', textAlign: 'center', fontWeight: 'bold' }}>
+                <div style={{ fontSize: '20px', marginBottom: '10px' }}>{gameOver}</div>
+                <button onClick={() => setGameState(null)}>返回大厅</button>
               </div>
+            )}
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {gameState.discards[p.id]?.map((tile, idx) => (
-                  <MahjongTileSVG key={idx} name={tile} size={30} />
-                ))}
+            <div className="grid">
+              {gameState.players.map(p => (
+                <div key={p.id} className="card" style={{ 
+                  border: p.id === gameState.currentTurn ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
+                  position: 'relative'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontWeight: p.id === gameState.currentTurn ? 'bold' : 'normal' }}>
+                      {p.id === socket?.id ? '【你】' : `玩家: ${p.id.substring(0, 5)}...`} {p.isBot && '(电脑)'}
+                    </span>
+                    <span style={{ fontSize: '12px', opacity: 0.8 }}>手牌: {p.handSize}</span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '10px', minHeight: '30px' }}>
+                    {gameState.melds[p.id]?.map((meld, mIdx) => (
+                      <div key={mIdx} style={{ display: 'flex', gap: '1px', border: '1px solid var(--border-color)', padding: '1px', borderRadius: '2px' }}>
+                        {meld.map((tile, tIdx) => (
+                          <MahjongTileSVG key={tIdx} name={tile} size={22} theme={theme} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+                    {gameState.discards[p.id]?.map((tile, idx) => (
+                      <MahjongTileSVG key={idx} name={tile} size={26} theme={theme} />
+                    ))}
+                  </div>
+                  {p.id === gameState.currentTurn && <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>出牌中</div>}
+                </div>
+              ))}
+            </div>
+
+            {gameState.possibleActions.length > 0 && (
+              <div style={{ position: 'fixed', bottom: '200px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--card-bg)', padding: '12px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', zIndex: 100, display: 'flex', gap: '12px', border: '1px solid var(--accent-color)' }}>
+                {gameState.possibleActions.includes('PONG') && (
+                  <button onClick={() => performAction('PONG')} style={{ backgroundColor: '#ff9800', color: '#fff' }}>碰</button>
+                )}
+                {gameState.possibleActions.includes('KONG') && (
+                  <button onClick={() => performAction('KONG')} style={{ backgroundColor: '#e91e63', color: '#fff' }}>杠</button>
+                )}
+                <button onClick={() => performAction(null)} style={{ backgroundColor: '#9e9e9e', color: '#fff' }}>跳过</button>
+              </div>
+            )}
+
+            <div style={{ position: 'fixed', bottom: '0', left: '0', right: '0', backgroundColor: 'var(--card-bg)', padding: '15px 10px 30px', borderTop: '1px solid var(--border-color)', zIndex: 50, boxShadow: '0 -4px 12px rgba(0,0,0,0.1)' }}>
+              <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>你的手牌</h3>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {gameState.hand.map((tile, idx) => (
+                      <MahjongTileSVG 
+                        key={idx} 
+                        name={tile} 
+                        size={44} 
+                        theme={theme}
+                        onClick={() => discardTile(idx)} 
+                      />
+                    ))}
+                  </div>
+                  
+                  {gameState.drawnTile && (
+                    <>
+                      <div style={{ width: '1px', height: '40px', backgroundColor: 'var(--border-color)', margin: '0 5px' }}></div>
+                      <MahjongTileSVG 
+                        name={gameState.drawnTile} 
+                        size={44} 
+                        theme={theme}
+                        highlighted 
+                        onClick={discardDrawnTile} 
+                      />
+                    </>
+                  )}
+                </div>
+                {gameState.currentTurn === socket?.id && !gameOver && (
+                  <p style={{ color: 'var(--accent-color)', fontWeight: 'bold', margin: '5px 0 0', fontSize: '14px', textAlign: 'center' }}>轮到你了，点击牌面打出</p>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-
-        {gameState.possibleActions.length > 0 && (
-          <div style={{ position: 'fixed', bottom: '240px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'rgba(255,255,255,0.95)', padding: '15px', borderRadius: '10px', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: 100, display: 'flex', gap: '15px' }}>
-            {gameState.possibleActions.includes('PONG') && (
-              <button onClick={() => performAction('PONG')} style={{ padding: '10px 25px', backgroundColor: '#ff9800', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>碰</button>
-            )}
-            {gameState.possibleActions.includes('KONG') && (
-              <button onClick={() => performAction('KONG')} style={{ padding: '10px 25px', backgroundColor: '#e91e63', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>杠</button>
-            )}
-            <button onClick={() => performAction(null)} style={{ padding: '10px 25px', backgroundColor: '#9e9e9e', color: '#fff', border: 'none', borderRadius: '5px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>跳过</button>
           </div>
-        )}
-
-        <div style={{ position: 'fixed', bottom: '20px', left: '20px', right: '20px', backgroundColor: '#fff', padding: '20px', borderRadius: '15px', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: 50 }}>
-          <h3 style={{ marginTop: 0 }}>你的手牌</h3>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-              {gameState.hand.map((tile, idx) => (
-                <MahjongTileSVG 
-                  key={idx} 
-                  name={tile} 
-                  size={50} 
-                  onClick={() => discardTile(idx)} 
-                />
+        ) : (
+          <div className="card" style={{ textAlign: 'center' }}>
+            <h2>房间: {joinedRoom.id}</h2>
+            <div style={{ marginBottom: '20px' }}>
+              {Object.values(joinedRoom.players).map((p) => (
+                <div key={p.id} style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{p.id === socket?.id ? <strong>你 ({p.id.substring(0, 6)})</strong> : `玩家: ${p.id.substring(0, 6)}`}</span>
+                  <span style={{ color: p.ready ? 'var(--accent-color)' : '#ff5252', fontWeight: 'bold' }}>{p.ready ? '已准备' : '未准备'}</span>
+                </div>
               ))}
             </div>
             
-            {gameState.drawnTile && (
-              <>
-                <div style={{ width: '15px', height: '40px', borderLeft: '2px dashed #ccc' }}></div>
-                <MahjongTileSVG 
-                  name={gameState.drawnTile} 
-                  size={50} 
-                  highlighted 
-                  onClick={discardDrawnTile} 
-                />
-              </>
-            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={toggleReady} style={{ backgroundColor: 'var(--button-primary)', color: '#fff' }}>
+                {joinedRoom.players[socket?.id || '']?.ready ? '取消准备' : '准备游戏'}
+              </button>
+              
+              {joinedRoom.host === socket?.id && (
+                <button onClick={startGame} style={{ backgroundColor: 'var(--button-success)', color: '#fff' }}>开始游戏</button>
+              )}
+            </div>
+            {error && <p style={{ color: '#ff5252', marginTop: '15px' }}>{error}</p>}
           </div>
-          {gameState.currentTurn === socket?.id && !gameOver && (
-            <p style={{ color: '#4caf50', fontWeight: 'bold', marginTop: '10px', fontSize: '14px' }}>到你了！点击一张牌打出。</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'sans-serif' }}>
-      <h2>房间: {joinedRoom.id}</h2>
-      <h3>当前玩家</h3>
-      <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'left', backgroundColor: '#fff', padding: '20px', borderRadius: '10px', border: '1px solid #ddd' }}>
-        {Object.values(joinedRoom.players).map((p) => (
-          <div key={p.id} style={{ padding: '10px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{p.id === socket?.id ? <strong>你 ({p.id.substring(0, 8)}...)</strong> : p.id.substring(0, 8) + '...'}</span>
-            <span style={{ color: p.ready ? 'green' : 'red' }}>{p.ready ? '已准备' : '未准备'}</span>
-          </div>
-        ))}
-      </div>
-      
-      <div style={{ marginTop: '30px' }}>
-        <button onClick={toggleReady} style={{ padding: '10px 20px', fontSize: '18px', backgroundColor: '#2196f3', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-          {joinedRoom.players[socket?.id || '']?.ready ? '取消准备' : '准备游戏'}
-        </button>
-        
-        {joinedRoom.host === socket?.id && (
-          <button 
-            onClick={startGame} 
-            style={{ 
-              padding: '10px 20px', 
-              fontSize: '18px', 
-              backgroundColor: '#4caf50', 
-              color: '#fff', 
-              border: 'none', 
-              borderRadius: '5px', 
-              cursor: 'pointer',
-              marginLeft: '20px'
-            }}
-          >
-            开始游戏
-          </button>
         )}
       </div>
-      {error && <p style={{ color: 'red', marginTop: '20px' }}>{error}</p>}
-      {joinedRoom.host === socket?.id && <p style={{ color: '#666', fontSize: '14px', marginTop: '10px' }}>作为房主，所有人准备后你可以开始游戏。空位将由电脑填充。</p>}
-    </div>
+    </>
   );
 };
 

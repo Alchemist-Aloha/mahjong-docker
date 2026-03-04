@@ -18,7 +18,7 @@ services:
     ports:
       - "53000:53000"
     environment:
-      - REACT_APP_BACKEND_URL=http://localhost:54321
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:54321}
     volumes:
       - ./frontend:/usr/src/app
       - /usr/src/app/node_modules
