@@ -12,7 +12,7 @@ export class MahjongBot {
   public playTurn() {
     const hand = this.game.hands[this.id];
     const drawnTile = this.game.lastDrawnTile[this.id];
-    
+
     let fullHand = [...hand];
     if (drawnTile) fullHand.push(drawnTile);
 
@@ -57,29 +57,29 @@ export class MahjongBot {
     }
 
     const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
-    const revMap = ['','一', '二', '三', '四', '五', '六', '七', '八', '九'];
-    
+    const revMap = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
     const num = valueMap[tile[0]];
     const suit = tile[1];
-    
+
     if (!num) return 0; // Fallback for invalid tiles
 
     let score = 10;
-    
+
     // Terminals are harder to meld than middle tiles
     if (num === 1 || num === 9) score -= 4;
     if (num === 2 || num === 8) score -= 2;
 
     const h = new Set(fullHand);
     let hasNeighbor = false;
-    
+
     // Direct neighbors (sequences)
-    if (num > 1 && h.has(`${revMap[num-1]}${suit}`)) { score += 20; hasNeighbor = true; }
-    if (num < 9 && h.has(`${revMap[num+1]}${suit}`)) { score += 20; hasNeighbor = true; }
-    
+    if (num > 1 && h.has(`${revMap[num - 1]}${suit}`)) { score += 20; hasNeighbor = true; }
+    if (num < 9 && h.has(`${revMap[num + 1]}${suit}`)) { score += 20; hasNeighbor = true; }
+
     // Skip-one neighbors (potential chows)
-    if (num > 2 && h.has(`${revMap[num-2]}${suit}`)) { score += 10; hasNeighbor = true; }
-    if (num < 8 && h.has(`${revMap[num+2]}${suit}`)) { score += 10; hasNeighbor = true; }
+    if (num > 2 && h.has(`${revMap[num - 2]}${suit}`)) { score += 10; hasNeighbor = true; }
+    if (num < 8 && h.has(`${revMap[num + 2]}${suit}`)) { score += 10; hasNeighbor = true; }
 
     if (!hasNeighbor) {
       score -= 5; // Isolated number tile
@@ -96,7 +96,7 @@ export class MahjongBot {
       this.game.performAction(this.id, 'KONG');
     } else if (actions.includes('PONG')) {
       // 70% chance to Pong
-      if (Math.random() < 0.7) { 
+      if (Math.random() < 0.7) {
         this.game.performAction(this.id, 'PONG');
       } else {
         this.game.performAction(this.id, null);
@@ -105,7 +105,7 @@ export class MahjongBot {
       const chowActions = actions.filter(a => a.startsWith('CHOW'));
       if (chowActions.length > 0) {
         // 40% chance to Chow (less aggressive about opening the hand)
-        if (Math.random() < 0.4) { 
+        if (Math.random() < 0.4) {
           const chosenChow = chowActions[Math.floor(Math.random() * chowActions.length)];
           this.game.performAction(this.id, chosenChow);
         } else {

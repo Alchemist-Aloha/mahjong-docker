@@ -9,7 +9,7 @@ import RoomLobby from './components/RoomLobby';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  if (!window.location.port) return window.location.origin; 
+  if (!window.location.port) return window.location.origin;
   return `http://${window.location.hostname}:54321`;
 };
 
@@ -140,8 +140,8 @@ const App: React.FC = () => {
   };
 
   const leaveRoom = () => {
-     localStorage.removeItem('mahjong_room_id');
-     window.location.reload();
+    localStorage.removeItem('mahjong_room_id');
+    window.location.reload();
   };
 
   const theme = isDarkMode ? 'dark' : 'light';
@@ -224,8 +224,8 @@ const App: React.FC = () => {
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h1 style={{ margin: 0, fontSize: '24px' }}>麻将 Docker</h1>
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)} 
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
             style={{ backgroundColor: 'transparent', color: 'var(--text-color)', border: '1px solid var(--border-color)', padding: '8px 12px', fontSize: '14px' }}
           >
             {isDarkMode ? '☀️ 明亮' : '🌙 暗黑'}
@@ -236,10 +236,10 @@ const App: React.FC = () => {
           <div className="card" style={{ textAlign: 'center', marginTop: '40px' }}>
             <h2>加入或创建房间</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '300px', margin: '0 auto' }}>
-              <input 
-                type="text" 
-                value={roomId} 
-                onChange={(e) => setRoomId(e.target.value)} 
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
                 placeholder="输入房间号"
               />
               <button onClick={joinRoom} style={{ backgroundColor: 'var(--button-primary)', color: '#fff' }}>进入房间</button>
@@ -254,11 +254,11 @@ const App: React.FC = () => {
             </div>
 
             {gameState.roundOver && gameOverInfo && (
-              <GameOverModal 
-                gameState={gameState} 
-                gameOverInfo={gameOverInfo} 
-                userId={userId} 
-                onNextRound={nextRound} 
+              <GameOverModal
+                gameState={gameState}
+                gameOverInfo={gameOverInfo}
+                userId={userId}
+                onNextRound={nextRound}
               />
             )}
 
@@ -266,12 +266,12 @@ const App: React.FC = () => {
 
             <ActionButtons gameState={gameState} theme={theme} onAction={performAction} />
 
-            <PlayerHand 
-              gameState={gameState} 
-              userId={userId} 
-              theme={theme} 
-              onDiscard={discardTile} 
-              onDiscardDrawn={discardDrawnTile} 
+            <PlayerHand
+              gameState={gameState}
+              userId={userId}
+              theme={theme}
+              onDiscard={discardTile}
+              onDiscardDrawn={discardDrawnTile}
             />
 
             <div style={{
@@ -292,12 +292,12 @@ const App: React.FC = () => {
               maxHeight: showLogs ? '200px' : '36px',
               transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
-              <div 
+              <div
                 onClick={() => setShowLogs(!showLogs)}
-                style={{ 
-                  cursor: 'pointer', 
-                  textAlign: 'center', 
-                  padding: '8px 15px', 
+                style={{
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  padding: '8px 15px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -311,19 +311,19 @@ const App: React.FC = () => {
                 <span>操作记录</span>
                 <span>{showLogs ? '🔽 收起' : '🔼 展开'}</span>
               </div>
-              <div style={{ 
-                overflowY: 'auto', 
-                flex: 1, 
-                fontSize: '13px', 
+              <div style={{
+                overflowY: 'auto',
+                flex: 1,
+                fontSize: '13px',
                 padding: '10px 15px',
                 opacity: showLogs ? 1 : 0,
                 visibility: showLogs ? 'visible' : 'hidden',
                 transition: 'opacity 0.2s'
               }}>
                 {(gameState.logs || []).slice().reverse().map((log, i) => (
-                  <div key={i} style={{ 
-                    marginBottom: '6px', 
-                    borderLeft: '2px solid var(--accent-color)', 
+                  <div key={i} style={{
+                    marginBottom: '6px',
+                    borderLeft: '2px solid var(--accent-color)',
                     paddingLeft: '8px',
                     color: i === 0 ? '#fff' : '#ccc'
                   }}>
@@ -335,7 +335,7 @@ const App: React.FC = () => {
             </div>
           </div>
         ) : (
-          <RoomLobby 
+          <RoomLobby
             joinedRoom={joinedRoom}
             userId={userId}
             playerName={playerName}

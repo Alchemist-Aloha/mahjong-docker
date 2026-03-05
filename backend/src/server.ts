@@ -61,10 +61,10 @@ io.on('connection', (socket) => {
       room.players[userId].isOnline = true;
       socket.join(roomId);
       socketToUser[socket.id] = { roomId, userId };
-      
+
       console.log(`Player ${userId} reconnected to room ${roomId}`);
       io.to(roomId).emit('roomUpdate', getCleanRoom(room));
-      
+
       if (room.game) {
         room.game.broadcastState(); // Sync game state for reconnected player
       }
@@ -82,11 +82,11 @@ io.on('connection', (socket) => {
     }
 
     const name = data.name || `玩家_${userId.substring(0, 4)}`;
-    room.players[userId] = { 
+    room.players[userId] = {
       id: userId,
       socketId: socket.id,
-      name: name.substring(0, 12), 
-      ready: false, 
+      name: name.substring(0, 12),
+      ready: false,
       isBot: false,
       totalScore: 0,
       isOnline: true
@@ -137,11 +137,11 @@ io.on('connection', (socket) => {
       const neededBots = 4 - humans.length;
       for (let i = 0; i < neededBots; i++) {
         const botId = `bot-${Date.now()}-${i}`;
-        room.players[botId] = { 
-          id: botId, 
+        room.players[botId] = {
+          id: botId,
           socketId: 'bot',
-          name: `电脑_${i + 1}`, 
-          ready: true, 
+          name: `电脑_${i + 1}`,
+          ready: true,
           isBot: true,
           totalScore: 0,
           isOnline: true
@@ -191,21 +191,21 @@ io.on('connection', (socket) => {
       if (room && room.players[userId]) {
         room.players[userId].isOnline = false;
         console.log(`Player ${userId} disconnected from room ${roomId}`);
-        
+
         // Check if all humans are offline
         const remainingOnlineHumans = Object.values(room.players).filter(p => !p.isBot && p.isOnline);
         if (remainingOnlineHumans.length === 0) {
           // If everyone left, we give some time before destroying the room
           setTimeout(() => {
-             const currentRoom = rooms[roomId];
-             if (currentRoom) {
-               const stillOffline = Object.values(currentRoom.players).filter(p => !p.isBot && p.isOnline).length === 0;
-               if (stillOffline) {
-                 console.log(`Destroying room ${roomId} due to inactivity`);
-                 if (currentRoom.game) currentRoom.game.stop();
-                 delete rooms[roomId];
-               }
-             }
+            const currentRoom = rooms[roomId];
+            if (currentRoom) {
+              const stillOffline = Object.values(currentRoom.players).filter(p => !p.isBot && p.isOnline).length === 0;
+              if (stillOffline) {
+                console.log(`Destroying room ${roomId} due to inactivity`);
+                if (currentRoom.game) currentRoom.game.stop();
+                delete rooms[roomId];
+              }
+            }
           }, 60000); // 1 minute grace period
         } else {
           // If the host left, reassign host to the first online human
