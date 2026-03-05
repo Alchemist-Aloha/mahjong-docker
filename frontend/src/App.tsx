@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState('');
   const [gameOverInfo, setGameOverInfo] = useState<GameOverData | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
@@ -272,6 +273,66 @@ const App: React.FC = () => {
               onDiscard={discardTile} 
               onDiscardDrawn={discardDrawnTile} 
             />
+
+            <div style={{
+              position: 'fixed',
+              bottom: showLogs ? '0' : '0', // If collapsed, still show the toggle
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '100%',
+              maxWidth: '500px',
+              backgroundColor: 'rgba(0,0,0,0.85)',
+              color: '#fff',
+              borderTopLeftRadius: '12px',
+              borderTopRightRadius: '12px',
+              zIndex: 1500,
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 -4px 15px rgba(0,0,0,0.3)',
+              maxHeight: showLogs ? '200px' : '36px',
+              transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              <div 
+                onClick={() => setShowLogs(!showLogs)}
+                style={{ 
+                  cursor: 'pointer', 
+                  textAlign: 'center', 
+                  padding: '8px 15px', 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  background: 'rgba(255,255,255,0.05)',
+                  borderTopLeftRadius: '12px',
+                  borderTopRightRadius: '12px'
+                }}
+              >
+                <span>操作记录</span>
+                <span>{showLogs ? '🔽 收起' : '🔼 展开'}</span>
+              </div>
+              <div style={{ 
+                overflowY: 'auto', 
+                flex: 1, 
+                fontSize: '13px', 
+                padding: '10px 15px',
+                opacity: showLogs ? 1 : 0,
+                visibility: showLogs ? 'visible' : 'hidden',
+                transition: 'opacity 0.2s'
+              }}>
+                {(gameState.logs || []).slice().reverse().map((log, i) => (
+                  <div key={i} style={{ 
+                    marginBottom: '6px', 
+                    borderLeft: '2px solid var(--accent-color)', 
+                    paddingLeft: '8px',
+                    color: i === 0 ? '#fff' : '#ccc'
+                  }}>
+                    {log}
+                  </div>
+                ))}
+                {(!gameState.logs || gameState.logs.length === 0) && <div>暂无操作记录</div>}
+              </div>
+            </div>
           </div>
         ) : (
           <RoomLobby 

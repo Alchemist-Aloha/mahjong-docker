@@ -28,6 +28,9 @@ export interface GameOverData {
     total: number;
     fans: FanResult[];
   };
+  hand?: string[];
+  melds?: string[][];
+  winningTile?: string;
 }
 
 export interface GameState {
@@ -45,4 +48,5 @@ export interface GameState {
   roundWinner: string | null;
   nextRoundReady: Record<string, boolean>;
   players: Player[];
+  logs: string[];
 }

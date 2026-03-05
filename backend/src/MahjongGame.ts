@@ -24,6 +24,7 @@ export class MahjongGame {
   private dealerIndex: number = 0;
   private nextRoundReady: Record<string, boolean> = {};
   private roundWinner: string | null = null;
+  private logs: string[] = [];
 
   constructor(io: Server, room: any) {
     this.io = io;
@@ -45,6 +46,14 @@ export class MahjongGame {
     this.waitingForActions = {};
     this.collectedActions = {};
     this.roundWinner = null;
+    this.logs = [];
+  }
+
+  private addLog(message: string) {
+    this.logs.push(message);
+    if (this.logs.length > 30) {
+      this.logs.shift();
+    }
   }
 
   private getTileWeight(tile: string): number {
@@ -76,6 +85,7 @@ export class MahjongGame {
     this.initializeBots();
     this.playerIds.forEach(id => this.resolveInitialFlowers(id));
     this.currentTurnIndex = this.dealerIndex;
+    this.addLog('游戏开始');
     this.broadcastState();
     this.drawTile(this.playerIds[this.currentTurnIndex]);
   }
@@ -184,8 +194,8 @@ export class MahjongGame {
           roundOver: !this.isRunning,
           roundWinner: this.roundWinner,
           nextRoundReady: this.nextRoundReady,
-          players: this.playerIds.map(pid => ({
-            id: pid,
+          logs: this.logs,
+          players: this.playerIds.map(pid => ({            id: pid,
             name: this.room.players[pid].name,
             totalScore: this.room.players[pid].totalScore,
             handSize: this.hands[pid].length + (this.lastDrawnTile[pid] ? 1 : 0),
@@ -210,12 +220,14 @@ export class MahjongGame {
     
     if (this.isFlower(tile)) {
       this.flowers[playerId].push(tile);
+      this.addLog(`${this.room.players[playerId].name} 补花: ${tile}`);
       this.broadcastState();
       setTimeout(() => this.drawTile(playerId, true), 800);
       return;
     }
 
     this.lastDrawnTile[playerId] = tile;
+    this.addLog(`${this.room.players[playerId].name} 摸牌`);
     this.broadcastState();
 
     const scoreResult = this.calculateScore(playerId, tile, true);
@@ -270,9 +282,19 @@ export class MahjongGame {
       if (winnerIndex !== this.dealerIndex) {
         this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
       }
-      this.io.to(this.room.id).emit('gameOver', { winner: winnerId, type, score: scoreResult });
+      const winnerName = this.room.players[winnerId].name;
+      this.addLog(`${winnerName} ${type === 'Tsumo' ? '自摸' : '荣和'}! (${scoreResult.total} 番)`);
+      this.io.to(this.room.id).emit('gameOver', { 
+        winner: winnerId, 
+        type, 
+        score: scoreResult,
+        hand: [...this.hands[winnerId]],
+        melds: this.melds[winnerId],
+        winningTile: type === 'Tsumo' ? this.lastDrawnTile[winnerId] : this.pendingDiscard?.tile
+      });
     } else {
       this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
+      this.addLog('流局了');
       this.io.to(this.room.id).emit('gameOver', { message: 'Draw' });
     }
     
@@ -302,6 +324,7 @@ export class MahjongGame {
       }
     }
 
+    this.addLog(`${this.room.players[playerId].name} 出牌: ${discarded}`);
     this.pendingDiscard = { playerId, tile: discarded };
     this.checkForInterruptions(discarded, playerId);
   }
@@ -342,7 +365,7 @@ export class MahjongGame {
           setTimeout(() => bot.handlePotentialAction(tile, this.waitingForActions[bot.id]), 1500);
         }
       });
-      this.actionTimeout = setTimeout(() => this.resolveCollectedActions(), 8000);
+      this.actionTimeout = setTimeout(() => this.resolveCollectedActions(), 30000);
     } else {
       this.proceedAfterNoAction();
     }
@@ -365,9 +388,18 @@ export class MahjongGame {
 
   public performAction(playerId: string, action: string | null) {
     if (!this.pendingDiscard) return;
+    
+    // Only accept actions from players we are waiting for
+    if (!this.waitingForActions[playerId]) return;
+
     this.collectedActions[playerId] = action;
+    console.log(`Action collected from ${playerId}: ${action} (Waiting for: ${Object.keys(this.waitingForActions).join(', ')})`);
+
     if (Object.keys(this.collectedActions).length === Object.keys(this.waitingForActions).length) {
-      if (this.actionTimeout) clearTimeout(this.actionTimeout);
+      if (this.actionTimeout) {
+        clearTimeout(this.actionTimeout);
+        this.actionTimeout = null;
+      }
       this.resolveCollectedActions();
     }
   }
@@ -375,21 +407,40 @@ export class MahjongGame {
   private resolveCollectedActions() {
     if (!this.pendingDiscard) return;
     const tile = this.pendingDiscard.tile;
+    const discarderId = this.pendingDiscard.playerId;
     const priorities = ['WIN', 'KONG', 'PONG', 'CHOW'];
+
+    console.log('Resolving collected actions:', this.collectedActions);
+
     for (const actionType of priorities) {
       const actingPlayers = Object.entries(this.collectedActions)
         .filter(([_, action]) => action === actionType)
         .map(([pid]) => pid);
+
       if (actingPlayers.length > 0) {
-        this.executeAction(actingPlayers[0], actionType, tile);
+        // If multiple players chose the same high-priority action (like WIN), 
+        // pick the one closest to the discarder in turn order
+        const discarderIndex = this.playerIds.indexOf(discarderId);
+        actingPlayers.sort((a, b) => {
+          const distA = (this.playerIds.indexOf(a) - discarderIndex + this.playerIds.length) % this.playerIds.length;
+          const distB = (this.playerIds.indexOf(b) - discarderIndex + this.playerIds.length) % this.playerIds.length;
+          return distA - distB;
+        });
+
+        const winner = actingPlayers[0];
+        console.log(`Executing prioritized action: ${actionType} for player ${winner}`);
+        this.executeAction(winner, actionType, tile);
         return;
       }
     }
+
+    console.log('No players performed an action, proceeding.');
     this.proceedAfterNoAction();
   }
 
   private executeAction(playerId: string, action: string, tile: string) {
     const hand = this.hands[playerId];
+    const playerName = this.room.players[playerId].name;
     if (action === 'WIN') {
       const scoreResult = this.calculateScore(playerId, tile, false);
       this.endRound(playerId, 'Ron', scoreResult);
@@ -398,14 +449,36 @@ export class MahjongGame {
 
     let isKong = false;
     if (action === 'PONG' || action === 'KONG') {
+      this.addLog(`${playerName} ${action === 'PONG' ? '碰' : '杠'}: ${tile}`);
       const count = action === 'PONG' ? 2 : 3;
       isKong = action === 'KONG';
-      for (let i = 0; i < count; i++) hand.splice(hand.indexOf(tile), 1);
+      for (let i = 0; i < count; i++) {
+        const idx = hand.indexOf(tile);
+        if (idx !== -1) {
+          hand.splice(idx, 1);
+        }
+      }
       this.melds[playerId].push(new Array(count + 1).fill(tile));
     } else if (action === 'CHOW') {
       const possible = this.canChow(hand, tile);
+      if (possible.length === 0) {
+        console.error(`Player ${playerId} tried to CHOW but no valid meld found for tile ${tile}`);
+        this.proceedAfterNoAction();
+        return;
+      }
       const meld = possible[0]; 
-      meld.forEach(t => { if (t !== tile) hand.splice(hand.indexOf(t), 1); });
+      this.addLog(`${playerName} 吃: ${meld.join('')}`);
+      console.log(`Player ${playerId} performing CHOW with meld:`, meld);
+      meld.forEach(t => { 
+        if (t !== tile) {
+          const idx = hand.indexOf(t);
+          if (idx !== -1) {
+            hand.splice(idx, 1);
+          } else {
+            console.error(`Tile ${t} not found in hand for CHOW`);
+          }
+        }
+      });
       this.melds[playerId].push(meld);
     }
 
