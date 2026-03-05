@@ -31,6 +31,7 @@ export interface GameOverData {
   hand?: string[];
   melds?: string[][];
   winningTile?: string;
+  scoreChanges?: Record<string, number>;
 }
 
 export interface GameState {

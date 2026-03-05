@@ -101,15 +101,19 @@ export class MahjongBot {
       } else {
         this.game.performAction(this.id, null);
       }
-    } else if (actions.includes('CHOW')) {
-      // 40% chance to Chow (less aggressive about opening the hand)
-      if (Math.random() < 0.4) { 
-        this.game.performAction(this.id, 'CHOW');
+    } else {
+      const chowActions = actions.filter(a => a.startsWith('CHOW'));
+      if (chowActions.length > 0) {
+        // 40% chance to Chow (less aggressive about opening the hand)
+        if (Math.random() < 0.4) { 
+          const chosenChow = chowActions[Math.floor(Math.random() * chowActions.length)];
+          this.game.performAction(this.id, chosenChow);
+        } else {
+          this.game.performAction(this.id, null);
+        }
       } else {
         this.game.performAction(this.id, null);
       }
-    } else {
-      this.game.performAction(this.id, null);
     }
   }
 }

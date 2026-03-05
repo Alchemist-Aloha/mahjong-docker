@@ -44,9 +44,18 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ gameState, theme, onActio
         {gameState.possibleActions.includes('PONG') && (
           <button onClick={() => onAction('PONG')} style={{ backgroundColor: '#ff9800', color: '#fff' }}>碰</button>
         )}
-        {gameState.possibleActions.includes('CHOW') && (
-          <button onClick={() => onAction('CHOW')} style={{ backgroundColor: '#4caf50', color: '#fff' }}>吃</button>
-        )}
+        {gameState.possibleActions.filter(a => a.startsWith('CHOW')).map(action => {
+          const meld = action.split(':')[1] || '';
+          return (
+            <button 
+              key={action} 
+              onClick={() => onAction(action)} 
+              style={{ backgroundColor: '#4caf50', color: '#fff', fontSize: '14px' }}
+            >
+              吃 {meld.replace(/,/g, '')}
+            </button>
+          );
+        })}
         <button onClick={() => onAction(null)} style={{ backgroundColor: '#9e9e9e', color: '#fff' }}>跳过</button>
       </div>
     </div>

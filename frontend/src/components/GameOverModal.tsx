@@ -82,14 +82,28 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ gameState, gameOverInfo, 
 
       <div style={{ marginBottom: '25px' }}>
         <div style={{ fontSize: '14px', opacity: 0.7, marginBottom: '10px' }}>确认就绪以开始下一轮</div>
-        {gameState.players.map(p => (
-          <div key={p.id} style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', padding: '0 20px' }}>
-            <span>{p.name} (总分: {p.totalScore})</span>
-            <span style={{ color: gameState.nextRoundReady[p.id] || p.isBot ? '#4caf50' : '#ff5252' }}>
-              {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中'}
-            </span>
-          </div>
-        ))}
+        {gameState.players.map(p => {
+          const change = gameOverInfo.scoreChanges?.[p.id];
+          return (
+            <div key={p.id} style={{ fontSize: '14px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', padding: '0 20px', alignItems: 'center' }}>
+              <span>
+                {p.name} (总分: {p.totalScore})
+                {change !== undefined && (
+                  <span style={{ 
+                    marginLeft: '8px', 
+                    color: change > 0 ? '#4caf50' : change < 0 ? '#ff5252' : '#999',
+                    fontWeight: 'bold'
+                  }}>
+                    {change > 0 ? `+${change}` : change}
+                  </span>
+                )}
+              </span>
+              <span style={{ color: gameState.nextRoundReady[p.id] || p.isBot ? '#4caf50' : '#ff5252' }}>
+                {gameState.nextRoundReady[p.id] || p.isBot ? '✅ 已就绪' : '⏳ 等待中'}
+              </span>
+            </div>
+          );
+        })}
       </div>
       
       {!gameState.nextRoundReady[userId] && (

@@ -84,7 +84,8 @@ export class MahjongScorer {
 
   private static generateInterpretations(hand: string[], exposedMelds: string[][], winningTile: string, isTsumo: boolean): Interpretation[] {
     const results: Interpretation[] = [];
-    const allTiles = [...hand, winningTile];
+    const flattenedExposed = exposedMelds.flat();
+    const allTiles = [...hand, winningTile, ...flattenedExposed];
     const concealedTiles = [...hand, winningTile];
     
     const exposed: Meld[] = exposedMelds.map(m => ({

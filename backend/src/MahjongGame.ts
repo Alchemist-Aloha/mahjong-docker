@@ -253,6 +253,8 @@ export class MahjongGame {
   private endRound(winnerId: string | null, type: string = '', scoreResult?: any) {
     this.isRunning = false;
     this.roundWinner = winnerId;
+    const scoreChanges: Record<string, number> = {};
+    this.playerIds.forEach(pid => scoreChanges[pid] = 0);
     
     if (winnerId) {
       const fans = scoreResult.total;
@@ -262,9 +264,11 @@ export class MahjongGame {
       if (type === 'Tsumo') {
         this.playerIds.forEach(pid => {
           if (pid !== winnerId) {
-            const pay = fans + 0;
+            const pay = fans + 8;
             this.room.players[pid].totalScore -= pay;
             this.room.players[winnerId].totalScore += pay;
+            scoreChanges[pid] -= pay;
+            scoreChanges[winnerId] += pay;
           }
         });
       } else {
@@ -272,9 +276,11 @@ export class MahjongGame {
         const discarderId = this.pendingDiscard!.playerId;
         this.playerIds.forEach(pid => {
           if (pid !== winnerId) {
-            const pay = (pid === discarderId) ? (fans + 0) : 0;
+            const pay = (pid === discarderId) ? (fans + 8) : 8;
             this.room.players[pid].totalScore -= pay;
             this.room.players[winnerId].totalScore += pay;
+            scoreChanges[pid] -= pay;
+            scoreChanges[winnerId] += pay;
           }
         });
       }
@@ -290,12 +296,13 @@ export class MahjongGame {
         score: scoreResult,
         hand: [...this.hands[winnerId]],
         melds: this.melds[winnerId],
-        winningTile: type === 'Tsumo' ? this.lastDrawnTile[winnerId] : this.pendingDiscard?.tile
+        winningTile: type === 'Tsumo' ? this.lastDrawnTile[winnerId] : this.pendingDiscard?.tile,
+        scoreChanges
       });
     } else {
       this.dealerIndex = (this.dealerIndex + 1) % this.playerIds.length;
       this.addLog('流局了');
-      this.io.to(this.room.id).emit('gameOver', { message: 'Draw' });
+      this.io.to(this.room.id).emit('gameOver', { message: 'Draw', scoreChanges });
     }
     
     this.broadcastState();
@@ -348,8 +355,11 @@ export class MahjongGame {
       if (count >= 2) actions.push('PONG');
       if (count === 3) actions.push('KONG');
 
-      if (pid === nextPlayerId && this.canChow(this.hands[pid], tile).length > 0) {
-        actions.push('CHOW');
+      if (pid === nextPlayerId) {
+        const chowMelds = this.canChow(this.hands[pid], tile);
+        chowMelds.forEach(meld => {
+          actions.push(`CHOW:${meld.join(',')}`);
+        });
       }
 
       if (actions.length > 0) {
@@ -414,7 +424,7 @@ export class MahjongGame {
 
     for (const actionType of priorities) {
       const actingPlayers = Object.entries(this.collectedActions)
-        .filter(([_, action]) => action === actionType)
+        .filter(([_, action]) => action && action.startsWith(actionType))
         .map(([pid]) => pid);
 
       if (actingPlayers.length > 0) {
@@ -428,8 +438,9 @@ export class MahjongGame {
         });
 
         const winner = actingPlayers[0];
-        console.log(`Executing prioritized action: ${actionType} for player ${winner}`);
-        this.executeAction(winner, actionType, tile);
+        const specificAction = this.collectedActions[winner]!;
+        console.log(`Executing prioritized action: ${actionType} (specific: ${specificAction}) for player ${winner}`);
+        this.executeAction(winner, specificAction, tile);
         return;
       }
     }
@@ -459,14 +470,20 @@ export class MahjongGame {
         }
       }
       this.melds[playerId].push(new Array(count + 1).fill(tile));
-    } else if (action === 'CHOW') {
-      const possible = this.canChow(hand, tile);
-      if (possible.length === 0) {
-        console.error(`Player ${playerId} tried to CHOW but no valid meld found for tile ${tile}`);
-        this.proceedAfterNoAction();
-        return;
+    } else if (action.startsWith('CHOW')) {
+      let meld: string[];
+      if (action.includes(':')) {
+        meld = action.split(':')[1].split(',');
+      } else {
+        const possible = this.canChow(hand, tile);
+        if (possible.length === 0) {
+          console.error(`Player ${playerId} tried to CHOW but no valid meld found for tile ${tile}`);
+          this.proceedAfterNoAction();
+          return;
+        }
+        meld = possible[0]; 
       }
-      const meld = possible[0]; 
+      
       this.addLog(`${playerName} 吃: ${meld.join('')}`);
       console.log(`Player ${playerId} performing CHOW with meld:`, meld);
       meld.forEach(t => { 
