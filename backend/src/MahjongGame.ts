@@ -58,8 +58,8 @@ export class MahjongGame {
 
   private getTileWeight(tile: string): number {
     const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
-    const suitMap: Record<string, number> = { '條': 10, '餅': 20, '萬': 30 };
-    const honorMap: Record<string, number> = { '东风': 41, '南风': 42, '西风': 43, '北风': 44, '红中': 45, '發財': 46, '白板': 47 };
+    const suitMap: Record<string, number> = { '条': 10, '饼': 20, '万': 30 };
+    const honorMap: Record<string, number> = { '东风': 41, '南风': 42, '西风': 43, '北风': 44, '红中': 45, '发财': 46, '白板': 47 };
     const flowerMap: Record<string, number> = { '春': 51, '夏': 52, '秋': 53, '冬': 54, '梅': 55, '兰': 56, '竹': 57, '菊': 58 };
 
     if (tile.length === 2) {
@@ -131,10 +131,10 @@ export class MahjongGame {
   }
 
   private initializeDeck() {
-    const suits = ['萬', '條', '餅'];
+    const suits = ['万', '条', '饼'];
     const values = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
     const winds = ['东风', '南风', '西风', '北风'];
-    const dragons = ['红中', '發財', '白板'];
+    const dragons = ['红中', '发财', '白板'];
     const flowerTiles = ['春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'];
 
     this.deck = [];
