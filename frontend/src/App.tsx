@@ -43,9 +43,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const newSocket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      secure: true,
-      rejectUnauthorized: false
+      transports: ['websocket', 'polling']
+      // secure will be auto-detected based on the page protocol (http vs https)
     });
     setSocket(newSocket);
 
