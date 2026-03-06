@@ -47,42 +47,63 @@ export class MahjongBot {
   }
 
   private getTileScore(tile: string, fullHand: string[]): number {
-    const count = fullHand.filter(t => t === tile).length;
-    if (count >= 3) return 100; // Triplets/Kongs are very valuable
-    if (count === 2) return 50;  // Pairs are valuable
+    const countInHand = fullHand.filter(t => t === tile).length;
+    
+    // Calculate Visibility: tiles already seen in discards and melds
+    let visibleCount = 0;
+    Object.values(this.game.discards).forEach(list => {
+      visibleCount += list.filter(t => t === tile).length;
+    });
+    Object.values(this.game.melds).forEach(playerMelds => {
+      playerMelds.forEach(meld => {
+        visibleCount += meld.filter(t => t === tile).length;
+      });
+    });
 
-    // Honors (Winds & Dragons)
-    if (['东风', '南风', '西风', '北风', '红中', '发财', '白板'].includes(tile)) {
-      return 0; // Isolated honors are highly expendable
-    }
+    const remainingCount = 4 - visibleCount;
+    // if (remainingCount <= 0 && countInHand === 1) return -100; // Tile is dead, discard immediately
 
+    let score = 0;
+
+    // 1. Sets/Pairs potential
+    if (countInHand >= 3) score += 120; 
+    if (countInHand === 2) score += 60;
+
+    // 2. Suit/Value Logic
     const valueMap: Record<string, number> = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
     const revMap = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-
     const num = valueMap[tile[0]];
     const suit = tile[1];
 
-    if (!num) return 0; // Fallback for invalid tiles
+    if (!num) {
+      // Honors (Winds & Dragons) - Value is purely based on triplets/pairs
+      if (countInHand === 1) {
+        // Isolated honor: check if others have discarded it (Safe Play)
+        if (visibleCount > 0) return -10; 
+        return 5; 
+      }
+      return score;
+    }
 
-    let score = 10;
+    // Terminals are less flexible
+    score += (num === 1 || num === 9) ? 5 : (num === 2 || num === 8) ? 15 : 25;
 
-    // Terminals are harder to meld than middle tiles
-    if (num === 1 || num === 9) score -= 4;
-    if (num === 2 || num === 8) score -= 2;
-
+    // 3. Sequence Potential (Neighbors)
     const h = new Set(fullHand);
-    let hasNeighbor = false;
+    let sequenceUtility = 0;
 
-    // Direct neighbors (sequences)
-    if (num > 1 && h.has(`${revMap[num - 1]}${suit}`)) { score += 20; hasNeighbor = true; }
-    if (num < 9 && h.has(`${revMap[num + 1]}${suit}`)) { score += 20; hasNeighbor = true; }
+    if (num > 1 && h.has(`${revMap[num - 1]}${suit}`)) sequenceUtility += 30;
+    if (num < 9 && h.has(`${revMap[num + 1]}${suit}`)) sequenceUtility += 30;
+    if (num > 2 && h.has(`${revMap[num - 2]}${suit}`)) sequenceUtility += 15;
+    if (num < 8 && h.has(`${revMap[num + 2]}${suit}`)) sequenceUtility += 15;
 
-    // Skip-one neighbors (potential chows)
-    if (num > 2 && h.has(`${revMap[num - 2]}${suit}`)) { score += 10; hasNeighbor = true; }
-    if (num < 8 && h.has(`${revMap[num + 2]}${suit}`)) { score += 10; hasNeighbor = true; }
+    score += sequenceUtility;
 
-    if (!hasNeighbor) {
-      score -= 5; // Isolated number tile
+    // 4. Rarity Penalty: if the tiles needed to complete a set are visible, reduce score
+    if (sequenceUtility > 0 || countInHand > 1) {
+      score += (remainingCount * 5); 
+    } else {
+      score -= (visibleCount * 10); // Isolated and visible? Trash it.
     }
 
     return score;
