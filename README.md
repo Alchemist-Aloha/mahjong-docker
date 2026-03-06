@@ -47,14 +47,13 @@
    ```
 
 2. **使用镜像运行**:
-   您可以通过修改 `docker-compose.yml` 将 `build` 字段替换为 `image` 字段，或者直接使用以下单行命令（需先设置必要的环境变量）：
+   您可以通过修改 `docker-compose.yml` 将 `build` 字段替换为 `image` 字段，或者直接使用以下单行命令：
    ```bash
    # 启动后端
-   docker run -d --name mahjong-backend -p 54321:54321 ghcr.io/alchemist-aloha/mahjong-docker-backend:main
+   docker run -d --name mahjong-backend -p 54321:54321 ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
    
-   # 启动前端 (注意替换为实际的后端 URL)
-   docker run -d --name mahjong-frontend -p 53000:80 -e BACKEND_HOST=localhost BACKEND_PORT=54321 ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
-
+   # 启动前端 (通过 BACKEND_URL 指定后端地址)
+   docker run -d --name mahjong-frontend -p 53000:80 -e BACKEND_URL=http://localhost:54321 ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
    ```
 
 3. **使用专门的 Compose 文件 (推荐)**:
@@ -62,19 +61,18 @@
    ```yaml
    services:
      backend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:main
+       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
        environment:
          - PORT=54321
          - NODE_ENV=production
 
      frontend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
+       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
        ports:
          - "53000:80"
        environment:
-         # 前端 Nginx 将根据这两个变量代理 Socket.io
-         - BACKEND_HOST=backend
-         - BACKEND_PORT=54321
+         # 前端 Nginx 将根据此变量代理 Socket.io
+         - BACKEND_URL=http://backend:54321
        depends_on:
          - backend
    ```
@@ -86,22 +84,20 @@
 ### 网络优化与排错
 如果您发现前端无法连接到后端：
 1. **容器网络**: 确保前端和后端容器在同一个 Docker 网络中（Docker Compose 会自动处理）。
-2. **BACKEND_HOST**: 在前端容器中，`BACKEND_HOST` 必须是后端容器的可达主机名。在 Compose 中通常是服务名（如 `backend`）。
-3. **VITE_BACKEND_URL**: 留空即代表使用前端 Nginx 进行自动代理（推荐）。只有当后端部署在完全不同的域名且未被代理时才需要填写。
+2. **BACKEND_URL**: 在前端容器中，`BACKEND_URL` 必须是后端容器的可达 URL。在 Compose 中通常是 `http://backend:54321`。
+3. **跨域与 HTTPS**: 如果您使用了反向代理（如 Nginx/Caddy）并开启了 HTTPS，请确保 `BACKEND_URL` 设置为正确的外部域名（如 `https://api.yourdomain.com`），系统已内置对 SSL 终止的 WebSocket 优化。
 
 ### 环境变量 (云端部署)
-若需指定后端 API 地址，可在启动前设置：
-```bash
-export VITE_BACKEND_URL=https://your-api-domain.com
-docker-compose up --build
-```
+若需指定前端直接连接的后端 API 地址，可在构建或运行时设置：
+- `VITE_BACKEND_URL`: (构建时/运行时) 覆盖自动代理，直接连接指定 URL。
+- `BACKEND_URL`: (运行时) Nginx 反向代理的目标地址。
 
 ## 技术栈
 
 - **Frontend**: React (Hooks), TypeScript, Vite, Socket.io-client
 - **Backend**: Node.js, Express, Socket.io, TypeScript
 - **Engine**: 启发式 AI 逻辑, 递归牌型拆解得分算法
-- **Infrastructure**: Docker, Docker Compose
+- **Infrastructure**: Docker, Docker Compose, Nginx Proxy
 
 ## 游戏规则简述
 
@@ -116,18 +112,27 @@ docker-compose up --build
 /
 ├── backend/               
 │   ├── src/
-│   │   ├── MahjongGame.ts    # 游戏核心引擎 (状态机管理)
-│   │   ├── MahjongScorer.ts  # 复杂的牌型拆解与番数计算
-│   │   ├── MahjongBot.ts     # 启发式智能 AI 决策
-│   │   └── server.ts         # Socket 房间管理与持久化映射
-│   └── Dockerfile
-└── frontend/              
-    ├── src/
-    │   ├── App.tsx           # 游戏主视图与状态协调
-    │   ├── components/       
-    │   │   └── MahjongTile.tsx # 矢量牌面渲染组件 (性能优化版)
-    │   └── main.tsx
-    └── Dockerfile
+│   │   ├── MahjongGame.ts    # 游戏核心引擎 (状态机、摸牌、出牌、鸣牌逻辑)
+│   │   ├── MahjongScorer.ts  # 牌型拆解、番数计算与胡牌判定
+│   │   ├── MahjongBot.ts     # 启发式智能 AI (决策权重、自动鸣牌)
+│   │   └── server.ts         # Express & Socket.io 服务端，处理房间与连接
+│   ├── tsconfig.json         # 后端 TypeScript 配置
+│   └── Dockerfile            # 基于 Node.js 的后端容器化脚本
+├── frontend/              
+│   ├── src/
+│   │   ├── App.tsx           # 前端根组件，负责 Socket 通信与主题管理
+│   │   ├── types.ts          # 前后端共用的类型定义
+│   │   ├── components/       
+│   │   │   ├── MahjongTile.tsx # 矢量牌面渲染组件 (支持繁体字面)
+│   │   │   ├── GameBoard.tsx   # 游戏主桌布 (弃牌区、其他玩家信息)
+│   │   │   ├── PlayerHand.tsx  # 本地玩家手牌区 (支持交互与排序)
+│   │   │   ├── ActionButtons.tsx # 吃碰杠胡操作按钮组
+│   │   │   └── RoomLobby.tsx   # 房间准备界面
+│   │   └── main.tsx
+│   ├── nginx.conf.template   # 生产环境 Nginx 配置模板 (支持环境变量)
+│   ├── vite.config.ts        # Vite 构建配置
+│   └── Dockerfile            # 多阶段构建前端静态资源并由 Nginx 托管
+└── docker-compose.yml        # 全栈一键编排脚本
 ```
 
 ## 开发者说明
