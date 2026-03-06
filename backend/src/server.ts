@@ -46,7 +46,17 @@ const getCleanRoom = (r: Room) => {
 };
 
 io.on('connection', (socket) => {
-  console.log('Player connected:', socket.id);
+  const transport = socket.conn.transport.name;
+  const ip = socket.handshake.address;
+  console.log(`[SOCKET] New connection: ${socket.id} (Transport: ${transport}, IP: ${ip})`);
+
+  socket.conn.on('upgrade', (newTransport) => {
+    console.log(`[SOCKET] ${socket.id} upgraded transport to: ${newTransport.name}`);
+  });
+
+  socket.on('error', (err) => {
+    console.error(`[SOCKET ERROR] ${socket.id}:`, err);
+  });
 
   socket.on('joinRoom', (data: { roomId: string, userId: string, name?: string }) => {
     const { roomId, userId } = data;

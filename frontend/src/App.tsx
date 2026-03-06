@@ -49,10 +49,24 @@ const App: React.FC = () => {
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
+      console.log('Socket connected successfully! ID:', newSocket.id);
       const savedRoomId = localStorage.getItem('mahjong_room_id');
       if (savedRoomId) {
+        console.log('Attempting to rejoin room:', savedRoomId);
         newSocket.emit('joinRoom', { roomId: savedRoomId, userId, name: playerName });
       }
+    });
+
+    newSocket.on('connect_error', (err: any) => {
+      console.error('Socket connection error details:', err.message, err.description || 'No description', err.context || 'No context');
+    });
+
+    newSocket.on('disconnect', (reason) => {
+      console.warn('Socket disconnected. Reason:', reason);
+    });
+
+    newSocket.on('reconnect_attempt', (attempt) => {
+      console.log('Attempting to reconnect...', attempt);
     });
 
     newSocket.on('roomUpdate', (room: Room) => {

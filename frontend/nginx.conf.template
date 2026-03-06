@@ -2,6 +2,10 @@ server {
     listen 80;
     server_name localhost;
 
+    # Verbose logging for diagnostics
+    error_log /var/log/nginx/error.log info;
+    access_log /var/log/nginx/access.log combined;
+
     # Serve static assets
     location / {
         root /usr/share/nginx/html;
