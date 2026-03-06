@@ -58,13 +58,16 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
       }
       if (name === "红中") {
         color = "#d32f2f";
-        return <text x="50%" y="55%" fontSize={width * 0.8} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[1]}</text>;
+        return <text x="50%" y="55%" fontSize={width * 1} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[1]}</text>;
       }
-      if (name === "发财") color = "#2e7d32";
+      if (name === "发财") {
+        color = "#2e7d32";
+        return <text x="50%" y="55%" fontSize={width * 1} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">發</text>;
+      }
       if (name === "白板") {
         return <rect x="20%" y="20%" width="60%" height="60%" fill="none" stroke="#1976d2" strokeWidth="4" rx="2" />;
       }
-      return <text x="50%" y="55%" fontSize={width * 0.8} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[0]}</text>;
+      return <text x="50%" y="55%" fontSize={width * 1} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[0]}</text>;
     }
   };
 
