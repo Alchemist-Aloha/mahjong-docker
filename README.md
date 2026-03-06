@@ -81,16 +81,23 @@
    docker-compose -f docker-compose.prod.yml up -d
    ```
 
-### 网络优化与排错
-如果您发现前端无法连接到后端：
-1. **容器网络**: 确保前端和后端容器在同一个 Docker 网络中（Docker Compose 会自动处理）。
-2. **BACKEND_URL**: 在前端容器中，`BACKEND_URL` 必须是后端容器的可达 URL。在 Compose 中通常是 `http://backend:54321`。
-3. **跨域与 HTTPS**: 如果您使用了反向代理（如 Nginx/Caddy）并开启了 HTTPS，请确保 `BACKEND_URL` 设置为正确的外部域名（如 `https://api.yourdomain.com`），系统已内置对 SSL 终止的 WebSocket 优化。
+### 网络架构与灵活部署
+项目采用 **单源架构 (Single-Origin Architecture)**，极大简化了部署复杂度：
+1. **自动代理**: 前端镜像不包含任何硬编码的 API 地址。它始终尝试连接到提供网页服务的同一主机（Origin）。
+2. **生产环境**: Nginx 容器负责将所有 `/socket.io/` 流量转发至后端。您只需通过环境变量 `BACKEND_URL` 指定后端地址（在 Docker Compose 中默认为 `http://backend:54321`）。
+3. **开发环境**: Vite 开发服务器 (`npm run dev`) 已内置代理配置，会自动将请求转发至本地 `54321` 端口，无需额外配置。
 
-### 环境变量 (云端部署)
-若需指定前端直接连接的后端 API 地址，可在构建或运行时设置：
-- `VITE_BACKEND_URL`: (构建时/运行时) 覆盖自动代理，直接连接指定 URL。
-- `BACKEND_URL`: (运行时) Nginx 反向代理的目标地址。
+### 环境变量
+- **BACKEND_URL**: (仅限前端容器运行时) Nginx 反向代理的目标后端地址。
+- **PORT**: (后端容器) 指定 Node.js 服务器监听的端口。
+
+## 项目文档
+详细的技术细节和需求说明请参阅 `/docs` 目录：
+- [软件需求规格 (SRS)](./docs/software-requirements-specification.md)
+- [产品需求文档 (PRD)](./docs/product-requirements-document.md)
+- [架构设计文档 (ADD)](./docs/architecture-design-document.md)
+- [技术设计文档 (TDD)](./docs/technical-design-document.md)
+- [项目待办事项 (Backlog)](./docs/backlog.md)
 
 ## 技术栈
 
