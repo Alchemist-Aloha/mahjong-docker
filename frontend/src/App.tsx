@@ -6,6 +6,7 @@ import PlayerHand from './components/PlayerHand';
 import ActionButtons from './components/ActionButtons';
 import GameOverModal from './components/GameOverModal';
 import RoomLobby from './components/RoomLobby';
+import Logo from './components/Logo';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
@@ -224,7 +225,10 @@ const App: React.FC = () => {
       <style>{commonStyles}</style>
       <div className="container">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ margin: 0, fontSize: '24px' }}>麻将 Docker</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Logo size={32} />
+            <h1 style={{ margin: 0, fontSize: '24px', letterSpacing: '-0.5px' }}>麻将 Docker</h1>
+          </div>
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             style={{ backgroundColor: 'transparent', color: 'var(--text-color)', border: '1px solid var(--border-color)', padding: '8px 12px', fontSize: '14px' }}
