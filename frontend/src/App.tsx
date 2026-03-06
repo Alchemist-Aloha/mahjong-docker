@@ -9,8 +9,9 @@ import RoomLobby from './components/RoomLobby';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  if (!window.location.port) return window.location.origin;
-  return `http://${window.location.hostname}:54321`;
+  // If no backend URL is specified, default to current origin (same host and port)
+  // This allows the frontend Nginx to proxy /socket.io/ to the backend container
+  return window.location.origin;
 };
 
 const SOCKET_URL = getSocketUrl();

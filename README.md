@@ -60,23 +60,26 @@
    创建一个 `docker-compose.prod.yml`:
    ```yaml
    services:
-     mahjong_backend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:main
+     backend:
+       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
+       # 不一定需要对外暴露端口，前端 Nginx 会代理 Socket.io
        ports:
          - "54321:54321"
        environment:
          - PORT=54321
          - NODE_ENV=production
 
-     mahjong_frontend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
+     frontend:
+       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
        ports:
          - "53000:80"
        environment:
-         - VITE_BACKEND_URL=http://localhost:54321
+         # 默认情况下前端 Nginx 会将 /socket.io/ 代理到 backend:54321
+         - VITE_BACKEND_URL=
        depends_on:
-         - mahjong_backend
+         - backend
    ```
+
    然后运行：
    ```bash
    docker-compose -f docker-compose.prod.yml up -d
