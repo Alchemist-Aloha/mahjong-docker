@@ -2,9 +2,8 @@
 FROM node:18-alpine AS builder
 WORKDIR /usr/src/app
 
-# Accept build arguments
-ARG VITE_BACKEND_URL
-ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+# Build-time environment variables are no longer needed
+# as the frontend uses relative paths for all API/Socket calls.
 
 COPY package*.json ./
 RUN npm install

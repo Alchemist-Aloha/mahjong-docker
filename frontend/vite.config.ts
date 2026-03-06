@@ -8,5 +8,12 @@ export default defineConfig({
     host: true,
     port: 53000,
     allowedHosts: true,
+    proxy: {
+      '/socket.io': {
+        target: 'http://localhost:54321',
+        ws: true,
+        changeOrigin: true
+      }
+    }
   }
 })

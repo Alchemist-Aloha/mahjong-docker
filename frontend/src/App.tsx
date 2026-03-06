@@ -8,14 +8,9 @@ import GameOverModal from './components/GameOverModal';
 import RoomLobby from './components/RoomLobby';
 import Logo from './components/Logo';
 
-const getSocketUrl = () => {
-  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
-  // If no backend URL is specified, default to current origin (same host and port)
-  // This allows the frontend Nginx to proxy /socket.io/ to the backend container
-  return window.location.origin;
-};
-
-const SOCKET_URL = getSocketUrl();
+// In a proxied environment (Docker/Nginx), we connect to the current origin
+// and let the reverse proxy handle routing to the backend.
+const SOCKET_URL = '/';
 
 const getUserId = () => {
   let id = localStorage.getItem('mahjong_user_id');
