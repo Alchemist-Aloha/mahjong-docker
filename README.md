@@ -29,13 +29,58 @@
 - 已安装 [Docker](https://www.docker.com/)
 - 已安装 [Docker Compose](https://docs.docker.com/compose/)
 
-### 启动步骤
+### 方案 A：本地构建并运行 (推荐用于开发)
 1. 克隆本项目。
 2. 在根目录下执行：
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 3. 访问：`http://localhost:53000`
+
+### 方案 B：使用预构建镜像 (推荐用于快速部署)
+如果您不想在本地进行编译，可以直接拉取 GitHub Packages (GHCR) 上的预构建镜像：
+
+1. **拉取最新镜像**:
+   ```bash
+   docker pull ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
+   docker pull ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
+   ```
+
+2. **使用镜像运行**:
+   您可以通过修改 `docker-compose.yml` 将 `build` 字段替换为 `image` 字段，或者直接使用以下单行命令（需先设置必要的环境变量）：
+   ```bash
+   # 启动后端
+   docker run -d --name mahjong-backend -p 54321:54321 ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
+   
+   # 启动前端 (注意替换为实际的后端 URL)
+   docker run -d --name mahjong-frontend -p 53000:80 -e VITE_BACKEND_URL=http://localhost:54321 ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
+   ```
+
+3. **使用专门的 Compose 文件 (推荐)**:
+   创建一个 `docker-compose.prod.yml`:
+   ```yaml
+   services:
+     mahjong_backend:
+       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:main
+       ports:
+         - "54321:54321"
+       environment:
+         - PORT=54321
+         - NODE_ENV=production
+
+     mahjong_frontend:
+       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
+       ports:
+         - "53000:80"
+       environment:
+         - VITE_BACKEND_URL=http://localhost:54321
+       depends_on:
+         - mahjong_backend
+   ```
+   然后运行：
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
 
 ### 环境变量 (云端部署)
 若需指定后端 API 地址，可在启动前设置：
