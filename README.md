@@ -33,7 +33,7 @@
 1. 克隆本项目。
 2. 在根目录下执行：
    ```bash
-   docker compose up --build
+   docker-compose up --build
    ```
 3. 访问：`http://localhost:53000`
 
@@ -62,9 +62,6 @@
    services:
      backend:
        image: ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
-       # 不一定需要对外暴露端口，前端 Nginx 会代理 Socket.io
-       ports:
-         - "54321:54321"
        environment:
          - PORT=54321
          - NODE_ENV=production
@@ -74,16 +71,22 @@
        ports:
          - "53000:80"
        environment:
-         # 默认情况下前端 Nginx 会将 /socket.io/ 代理到 backend:54321
-         - VITE_BACKEND_URL=
+         # 前端 Nginx 将根据这两个变量代理 Socket.io
+         - BACKEND_HOST=backend
+         - BACKEND_PORT=54321
        depends_on:
          - backend
    ```
-
    然后运行：
    ```bash
    docker-compose -f docker-compose.prod.yml up -d
    ```
+
+### 网络优化与排错
+如果您发现前端无法连接到后端：
+1. **容器网络**: 确保前端和后端容器在同一个 Docker 网络中（Docker Compose 会自动处理）。
+2. **BACKEND_HOST**: 在前端容器中，`BACKEND_HOST` 必须是后端容器的可达主机名。在 Compose 中通常是服务名（如 `backend`）。
+3. **VITE_BACKEND_URL**: 留空即代表使用前端 Nginx 进行自动代理（推荐）。只有当后端部署在完全不同的域名且未被代理时才需要填写。
 
 ### 环境变量 (云端部署)
 若需指定后端 API 地址，可在启动前设置：
