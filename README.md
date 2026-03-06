@@ -82,13 +82,14 @@
    ```
 
 ### 网络架构与灵活部署
-项目采用 **单源架构 (Single-Origin Architecture)**，极大简化了部署复杂度：
-1. **自动代理**: 前端镜像不包含任何硬编码的 API 地址。它始终尝试连接到提供网页服务的同一主机（Origin）。
-2. **生产环境**: Nginx 容器负责将所有 `/socket.io/` 流量转发至后端。您只需通过环境变量 `BACKEND_URL` 指定后端地址（在 Docker Compose 中默认为 `http://backend:54321`）。
-3. **开发环境**: Vite 开发服务器 (`npm run dev`) 已内置代理配置，会自动将请求转发至本地 `54321` 端口，无需额外配置。
+项目采用 **单源架构 (Single-Origin Architecture)** 与 **故障安全代理 (Fail-safe Proxy)**，实现零配置启动：
+1. **自动代理**: 前端镜像不包含硬编码 API 地址，始终连接至当前 Origin。
+2. **生产环境 (Nginx 内部回退)**: 前端 Nginx 具备自愈能力。若未指定 `BACKEND_URL`，它将自动尝试通过 Docker 内部网络 (`http://backend:54321`) 连接后端。
+3. **边缘代理 (Caddy/Nginx)**: 推荐在最外层使用 Caddy 等工具处理 SSL，并将流量转发至前端容器。项目已针对 SSL 终止的 WebSocket 进行了深度优化。
+4. **开发环境**: Vite 开发服务器已内置热重载代理，无需任何配置即可与本地后端通信。
 
 ### 环境变量
-- **BACKEND_URL**: (仅限前端容器运行时) Nginx 反向代理的目标后端地址。
+- **BACKEND_URL**: (可选) Nginx 转发 Socket.io 流量的目标地址。默认为 `http://backend:54321`。
 - **PORT**: (后端容器) 指定 Node.js 服务器监听的端口。
 
 ## 项目文档

@@ -14,5 +14,5 @@ The "Hu" (Win) detection uses a backtracking algorithm:
 
 ## 3. Deployment Pipeline
 - **Multi-stage Dockerfiles**: Separation of build and runner environments to minimize the production image footprint.
-- **Static Asset Serving**: The frontend Nginx is configured strictly for serving assets and handling SPA routing (`try_files`).
-- **Edge Routing (Caddy)**: All path-based routing (e.g., `/socket.io/`) is handled by Caddy at the infrastructure level. This reduces latency by eliminating a layer of internal proxying.
+- **Static Asset Serving & Proxy Fallback**: The frontend Nginx handles SPA routing (`try_files`) and provides a runtime fallback for Socket.IO traffic using the `set $backend_url` directive.
+- **Runtime Self-Healing**: The Nginx template includes a conditional check: if `BACKEND_URL` is empty, it defaults to the internal Docker service name, preventing container startup failures and simplifying deployment.

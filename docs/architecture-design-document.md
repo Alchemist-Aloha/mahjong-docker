@@ -7,7 +7,7 @@ The system employs a decoupled microservices architecture consisting of a React 
 - **Socket.IO for State Sync**: Chosen for its robust fallback mechanisms (long-polling) and built-in room management, essential for a turn-based game.
 - **SVG Rendering Engine**: Instead of bitmap assets, tiles are rendered via SVGs. This ensures crisp graphics at any zoom level, reduces initial load size, and enables easy theme switching.
 - **Edge Reverse Proxy (Caddy)**: Used for SSL termination and primary routing. It provides a single-origin entry point for the browser, routing static assets to the frontend and WebSockets to the backend.
-- **Internal Static Server (Nginx)**: The frontend Nginx is strictly a static file server, keeping the container lightweight and efficient.
+- **Fail-safe Internal Proxy (Nginx)**: The frontend Nginx serves static assets AND acts as a fallback proxy for Socket.IO. It includes logic to automatically route traffic to the internal `backend` service if no environment variables are provided, ensuring the system works out-of-the-box.
 - **Guobiao Standard**: Selected as the primary rule set due to its international recognition and comprehensive scoring complexity, which tests the limits of the recursive scoring engine.
 
 ## 3. Data Flow

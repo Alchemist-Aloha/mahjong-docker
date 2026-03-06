@@ -12,6 +12,6 @@ services:
     ports:
       - "53000:80"
     environment:
-      - BACKEND_URL=http://backend:54321
+      - BACKEND_URL=${BACKEND_URL:-http://backend:54321}
     depends_on:
       - backend
