@@ -15,8 +15,9 @@
   - **移动端深度优化**: 专为手机屏幕设计的布局，支持触摸出牌，手牌区域可横向滑动。
   - **暗黑模式**: 完美支持深色/明亮主题一键切换。
 - **专业级矢量牌面**: 
-  - 使用独立封装的 `MahjongTile` 组件，纯 SVG 渲染 144 张牌（含花牌）。
-  - 支持 **React.memo** 性能优化，在大规模弃牌堆下依然保持极速响应。
+  - **高精度 SVG 资产**: 采用全新的 `mahjong_graphic` 矢量图集，提供极致清晰的传统麻将视觉效果。
+  - **动态按需加载**: 基于 Vite 的资源管理，根据游戏状态动态加载对应的牌面资源。
+  - **交互式体验**: 独立封装的 `MahjongTile` 组件，支持点击反馈、高亮提示，适配不同尺寸的屏幕显示。
 - **标准规则支持**:
     - **核心操作**: 吃、碰、杠、补花。
     - **胜负判定**: 支持自摸胡和点炮荣 (Ron)。
@@ -131,12 +132,12 @@
 │   │   ├── App.tsx           # 前端根组件，负责 Socket 通信与主题管理
 │   │   ├── types.ts          # 前后端共用的类型定义
 │   │   ├── components/       
-│   │   │   ├── MahjongTile.tsx # 矢量牌面渲染组件 (支持繁体字面)
+│   │   │   ├── MahjongTile.tsx # 矢量牌面渲染组件 (支持传统高精度 SVG)
 │   │   │   ├── GameBoard.tsx   # 游戏主桌布 (弃牌区、其他玩家信息)
 │   │   │   ├── PlayerHand.tsx  # 本地玩家手牌区 (支持交互与排序)
 │   │   │   ├── ActionButtons.tsx # 吃碰杠胡操作按钮组
 │   │   │   └── RoomLobby.tsx   # 房间准备界面
-│   │   └── main.tsx
+│   │   └── mahjong_graphic/   # 核心矢量资源目录 (SVG/PNG)
 │   ├── nginx.conf.template   # 生产环境 Nginx 配置模板 (支持环境变量)
 │   ├── vite.config.ts        # Vite 构建配置
 │   └── Dockerfile            # 多阶段构建前端静态资源并由 Nginx 托管
@@ -145,6 +146,11 @@
 
 ## 开发者说明
 项目采用模块化设计，核心逻辑与 UI 渲染分离。如果您想贡献新的番种算法，请直接修改 `backend/src/MahjongScorer.ts`；如果您想优化视觉效果，请关注 `frontend/src/components/MahjongTile.tsx`。
+
+## 致谢 (Credits)
+
+本项目使用的专业级麻将矢量牌面资源源自：
+- **mahjong_graphic**: [https://github.com/lietxia/mahjong_graphic](https://github.com/lietxia/mahjong_graphic) 
 
 ## 许可证
 MIT License

@@ -23,7 +23,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({ gameState, userId, theme, onDis
       zIndex: 50, 
       boxShadow: '0 -4px 12px rgba(0,0,0,0.1)' 
     }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '16px' }}>你的手牌</h3>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', overflowX: 'auto', paddingBottom: '10px', scrollbarWidth: 'none' }}>
           <div style={{ display: 'flex', gap: '4px' }}>

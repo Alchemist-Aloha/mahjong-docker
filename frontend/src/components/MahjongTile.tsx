@@ -28,8 +28,8 @@ const nameToFilename: Record<string, string> = {
 const tileSvgs = import.meta.glob('./mahjong_graphic/Vectors 矢量图/SVG/*.svg', { eager: true, as: 'url' });
 
 const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted, onClick, theme }) => {
-  const width = size;
-  const height = size * 1.4;
+  const width = `calc(${size}px * var(--tile-scale, 1))`;
+  const height = `calc(${size * 1.4}px * var(--tile-scale, 1))`;
 
   const getSvgUrl = (tileName: string) => {
     const filename = nameToFilename[tileName];
@@ -75,7 +75,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
       ) : (
         // Fallback to old rendering logic if SVG is not found
         <svg width="100%" height="80%" viewBox="0 0 100 100">
-          <text x="50%" y="55%" fontSize={width * 0.8} textAnchor="middle" dominantBaseline="middle" fill={theme === 'dark' ? '#ddd' : '#333'} fontWeight="bold">?</text>
+          <text x="50%" y="55%" fontSize={size * 0.8} textAnchor="middle" dominantBaseline="middle" fill={theme === 'dark' ? '#ddd' : '#333'} fontWeight="bold">?</text>
         </svg>
       )}
       {/* Optional: Keep the name label if needed, but the SVGs are usually clear enough */}

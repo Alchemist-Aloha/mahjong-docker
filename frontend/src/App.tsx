@@ -170,6 +170,7 @@ const App: React.FC = () => {
       --accent-glow: rgba(76, 175, 80, 0.6);
       --button-primary: #2196f3;
       --button-success: #4caf50;
+      --tile-scale: 1;
     }
     [data-theme='dark'] {
       --bg-color: #121212;
@@ -180,6 +181,14 @@ const App: React.FC = () => {
       --accent-glow: rgba(129, 199, 132, 0.4);
       --button-primary: #1976d2;
       --button-success: #388e3c;
+    }
+    @media (min-width: 1024px) {
+      :root {
+        --tile-scale: 1.4;
+      }
+      .container {
+        max-width: 1200px !important;
+      }
     }
     body {
       background-color: var(--bg-color);
@@ -222,10 +231,10 @@ const App: React.FC = () => {
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 15px;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .grid {
         grid-template-columns: 1fr;
       }
@@ -293,61 +302,94 @@ const App: React.FC = () => {
 
             <div style={{
               position: 'fixed',
-              bottom: showLogs ? '0' : '0', // If collapsed, still show the toggle
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '100%',
-              maxWidth: '500px',
-              backgroundColor: 'rgba(0,0,0,0.85)',
+              bottom: '0',
+              left: '0',
+              right: '0',
+              backgroundColor: 'rgba(20, 20, 20, 0.85)',
               color: '#fff',
-              borderTopLeftRadius: '12px',
-              borderTopRightRadius: '12px',
-              zIndex: 1500,
+              zIndex: 2000,
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 -4px 15px rgba(0,0,0,0.3)',
-              maxHeight: showLogs ? '200px' : '36px',
-              transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              boxShadow: '0 -4px 20px rgba(0,0,0,0.5)',
+              maxHeight: showLogs ? '280px' : '32px',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              backdropFilter: 'blur(12px)',
+              borderTop: '1px solid rgba(255,255,255,0.15)',
+              overflow: 'hidden'
             }}>
               <div
                 onClick={() => setShowLogs(!showLogs)}
                 style={{
                   cursor: 'pointer',
-                  textAlign: 'center',
-                  padding: '8px 15px',
+                  padding: '6px 15px',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  background: 'rgba(255,255,255,0.05)',
-                  borderTopLeftRadius: '12px',
-                  borderTopRightRadius: '12px'
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  background: 'rgba(255,255,255,0.03)',
+                  userSelect: 'none'
                 }}
               >
-                <span>操作记录</span>
-                <span>{showLogs ? '🔽 收起' : '🔼 展开'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}>
+                  <span style={{ 
+                    display: 'inline-block', 
+                    width: '6px', 
+                    height: '6px', 
+                    borderRadius: '50%', 
+                    backgroundColor: '#4caf50',
+                    boxShadow: '0 0 5px #4caf50'
+                  }}></span>
+                  <span style={{ color: '#aaa', whiteSpace: 'nowrap' }}>对局记录</span>
+                  {!showLogs && gameState.logs && gameState.logs.length > 0 && (
+                    <span style={{ 
+                      fontWeight: 'normal', 
+                      fontSize: '12px', 
+                      color: '#eee',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden',
+                      marginLeft: '4px'
+                    }}>
+                      {gameState.logs[gameState.logs.length - 1]}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: '#888', marginLeft: '10px' }}>
+                  {showLogs ? '点击收起 ▾' : '查看记录 ▴'}
+                </div>
               </div>
               <div style={{
                 overflowY: 'auto',
                 flex: 1,
                 fontSize: '13px',
-                padding: '10px 15px',
+                padding: '12px 15px',
                 opacity: showLogs ? 1 : 0,
                 visibility: showLogs ? 'visible' : 'hidden',
-                transition: 'opacity 0.2s'
+                transition: 'opacity 0.2s',
+                scrollbarWidth: 'thin'
               }}>
-                {(gameState.logs || []).slice().reverse().map((log, i) => (
-                  <div key={i} style={{
-                    marginBottom: '6px',
-                    borderLeft: '2px solid var(--accent-color)',
-                    paddingLeft: '8px',
-                    color: i === 0 ? '#fff' : '#ccc'
-                  }}>
-                    {log}
-                  </div>
-                ))}
-                {(!gameState.logs || gameState.logs.length === 0) && <div>暂无操作记录</div>}
+                {(gameState.logs || []).slice().reverse().map((log, i) => {
+                  let color = '#ccc';
+                  if (log.includes('胡') || log.includes('自摸')) color = '#ffb74d';
+                  else if (log.includes('吃') || log.includes('碰') || log.includes('杠')) color = '#81c784';
+                  else if (log.includes('出牌')) color = '#eee';
+                  else if (log.includes('补花')) color = '#ce93d8';
+                  
+                  return (
+                    <div key={i} style={{
+                      marginBottom: '8px',
+                      paddingLeft: '10px',
+                      borderLeft: `2px solid ${i === 0 ? '#4caf50' : 'rgba(255,255,255,0.1)'}`,
+                      color: i === 0 ? '#fff' : color,
+                      fontSize: '13px',
+                      lineHeight: '1.4'
+                    }}>
+                      {log}
+                    </div>
+                  );
+                })}
+                {(!gameState.logs || gameState.logs.length === 0) && <div style={{ color: '#666', textAlign: 'center', marginTop: '20px' }}>暂无操作记录</div>}
               </div>
             </div>
           </div>
