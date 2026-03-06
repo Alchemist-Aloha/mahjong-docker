@@ -52,7 +52,7 @@ export class MahjongBot {
     if (count === 2) return 50;  // Pairs are valuable
 
     // Honors (Winds & Dragons)
-    if (['东风', '南风', '西风', '北风', '红中', '发财', '白板'].includes(tile)) {
+    if (['东风', '南风', '西风', '北风', '红中', '發財', '白板'].includes(tile)) {
       return 0; // Isolated honors are highly expendable
     }
 

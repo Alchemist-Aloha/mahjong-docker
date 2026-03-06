@@ -234,7 +234,7 @@ export class MahjongScorer {
     }
 
     // Chow
-    if (first.length === 2 && ['万', '条', '饼'].includes(first[1])) {
+    if (first.length === 2 && ['萬', '條', '餅'].includes(first[1])) {
       const val = this.valueMap[first[0]];
       const suit = first[1];
       if (val && val <= 7) {
@@ -252,7 +252,7 @@ export class MahjongScorer {
   }
 
   private static getComboDragons(tiles: string[]): string[][] {
-    const suits = ['万', '条', '饼'];
+    const suits = ['萬', '條', '餅'];
     const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
     const results = [];
     for (const p of perms) {
@@ -277,10 +277,10 @@ export class MahjongScorer {
   }
 
   // --- Helper Methods ---
-  private static getWeight(t: string) { return (['万', '条', '饼'].includes(t[1]) ? { '万': 0, '条': 10, '饼': 20 }[t[1]]! : 30) + (this.valueMap[t[0]] || 0); }
+  private static getWeight(t: string) { return (['萬', '條', '餅'].includes(t[1]) ? { '萬': 0, '條': 10, '餅': 20 }[t[1]]! : 30) + (this.valueMap[t[0]] || 0); }
   private static countTiles(tiles: string[]) { const c: Record<string, number> = {}; tiles.forEach(t => c[t] = (c[t] || 0) + 1); return c; }
   private static isThirteenOrphans(t: string[]) {
-    const req = ['一万', '九万', '一条', '九条', '一饼', '九饼', '东风', '南风', '西风', '北风', '红中', '发财', '白板'];
+    const req = ['一萬', '九萬', '一條', '九條', '一餅', '九餅', '东风', '南风', '西风', '北风', '红中', '發財', '白板'];
     const c = this.countTiles(t);
     return req.every(x => c[x] >= 1) && t.length === 14;
   }
@@ -326,7 +326,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
   // 88
   { name: '大四喜', points: 88, check: i => countMelds(i, m => m.type !== 'chow' && getSuit(m.tiles[0]) === '风') === 4 },
   { name: '大三元', points: 88, check: i => countMelds(i, m => m.type !== 'chow' && getSuit(m.tiles[0]) === '箭') === 3 },
-  { name: '绿一色', points: 88, check: i => i.allTiles.every(t => ['二条', '三条', '四条', '六条', '八条', '发财'].includes(t)) },
+  { name: '绿一色', points: 88, check: i => i.allTiles.every(t => ['二條', '三條', '四條', '六條', '八條', '發財'].includes(t)) },
   {
     name: '九莲宝灯', points: 88, check: i => {
       if (i.melds.some(m => !m.isConcealed && m.type !== 'kong')) return false;
@@ -543,7 +543,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
       return new Set([getSuit(s1), getSuit(s4), getSuit(s7)]).size === 3;
     }
   },
-  { name: '推不倒', points: 8, check: i => i.allTiles.every(t => ['一饼', '二饼', '三饼', '四饼', '五饼', '八饼', '九饼', '二条', '四条', '五条', '六条', '八条', '九条', '白板'].includes(t)) },
+  { name: '推不倒', points: 8, check: i => i.allTiles.every(t => ['一餅', '二餅', '三餅', '四餅', '五餅', '八餅', '九餅', '二條', '四條', '五條', '六條', '八條', '九條', '白板'].includes(t)) },
   {
     name: '三色三同顺', points: 8, check: i => {
       if (i.special) return false;
@@ -551,7 +551,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
       const byVal: Record<number, string[]> = {};
       chows.forEach(c => {
         const v = getVal(c.tiles[0]);
-        if (!byVal[v]) byVal[v] = [];
+        if (!byVal[v]) return;
         byVal[v].push(getSuit(c.tiles[0]));
       });
       return Object.values(byVal).some(suits => new Set(suits).size >= 3);
@@ -610,7 +610,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
   {
     name: '五门齐', points: 6, check: i => {
       const suits = new Set(i.allTiles.map(getSuit));
-      return suits.has('万') && suits.has('条') && suits.has('饼') && suits.has('风') && suits.has('箭');
+      return suits.has('萬') && suits.has('條') && suits.has('餅') && suits.has('风') && suits.has('箭');
     }
   },
   { name: '全求人', points: 6, check: i => !i.isTsumo && countMelds(i, m => !m.isConcealed) === 4 && i.waitType === 'single' },
@@ -664,7 +664,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
       const byVal: Record<number, string[]> = {};
       chows.forEach(c => {
         const v = getVal(c.tiles[0]);
-        if (!byVal[v]) byVal[v] = [];
+        if (!byVal[v]) return;
         byVal[v].push(getSuit(c.tiles[0]));
       });
       return Object.values(byVal).some(suits => new Set(suits).size === 2);
@@ -677,7 +677,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
       const bySuit: Record<string, number[]> = {};
       chows.forEach(c => {
         const s = getSuit(c.tiles[0]);
-        if (!bySuit[s]) bySuit[s] = [];
+        if (!bySuit[s]) return;
         bySuit[s].push(getVal(c.tiles[0]));
       });
       return Object.values(bySuit).some(vals => {
@@ -695,7 +695,7 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
       const bySuit: Record<string, number[]> = {};
       chows.forEach(c => {
         const s = getSuit(c.tiles[0]);
-        if (!bySuit[s]) bySuit[s] = [];
+        if (!bySuit[s]) return;
         bySuit[s].push(getVal(c.tiles[0]));
       });
       return Object.values(bySuit).some(vals => vals.includes(1) && vals.includes(7));
@@ -707,9 +707,9 @@ const FANS: { name: string, points: number, check: (i: Interpretation, ctx: Scor
     name: '缺一门', points: 1, check: i => {
       const suits = new Set(i.allTiles.map(getSuit));
       let missing = 0;
-      if (!suits.has('万')) missing++;
-      if (!suits.has('条')) missing++;
-      if (!suits.has('饼')) missing++;
+      if (!suits.has('萬')) missing++;
+      if (!suits.has('條')) missing++;
+      if (!suits.has('餅')) missing++;
       return missing === 1;
     }
   },

@@ -16,14 +16,14 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
     const value = name[0];
     const suit = name[1];
     
-    if (suit === '万') {
+    if (suit === '萬') {
       return (
         <g>
           <text x="50%" y="40%" fontSize={width * 0.4} textAnchor="middle" dominantBaseline="middle" fill="#d32f2f" fontWeight="bold">{value}</text>
-          <text x="50%" y="75%" fontSize={width * 0.4} textAnchor="middle" dominantBaseline="middle" fill="#1976d2" fontWeight="bold">万</text>
+          <text x="50%" y="75%" fontSize={width * 0.4} textAnchor="middle" dominantBaseline="middle" fill="#1976d2" fontWeight="bold">萬</text>
         </g>
       );
-    } else if (suit === '条') {
+    } else if (suit === '條') {
       const sticks = {
         '一': [[50, 50]], '二': [[50, 35], [50, 65]], '三': [[50, 25], [50, 50], [50, 75]],
         '四': [[35, 35], [65, 35], [35, 65], [65, 65]], '五': [[35, 35], [65, 35], [50, 50], [35, 65], [65, 65]],
@@ -33,7 +33,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
         '九': [[25, 25], [50, 25], [75, 25], [25, 50], [50, 50], [75, 50], [25, 75], [50, 75], [75, 75]]
       }[value] || [];
       return sticks.map(([x, y], i) => <rect key={i} x={`${x-5}%`} y={`${y-10}%`} width="10%" height="20%" fill="#2e7d32" rx="2" />);
-    } else if (suit === '饼') {
+    } else if (suit === '餅') {
       const dots = {
         '一': [[50, 50, 25]], '二': [[50, 30, 15], [50, 70, 15]], '三': [[25, 25, 12], [50, 50, 12], [75, 75, 12]],
         '四': [[30, 30, 12], [70, 30, 12], [30, 70, 12], [70, 70, 12]], '五': [[30, 30, 12], [70, 30, 12], [50, 50, 12], [30, 70, 12], [70, 70, 12]],
@@ -60,7 +60,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
         color = "#d32f2f";
         return <text x="50%" y="55%" fontSize={width * 0.8} textAnchor="middle" dominantBaseline="middle" fill={color} fontWeight="bold">{name[1]}</text>;
       }
-      if (name === "发财") color = "#2e7d32";
+      if (name === "發財") color = "#2e7d32";
       if (name === "白板") {
         return <rect x="20%" y="20%" width="60%" height="60%" fill="none" stroke="#1976d2" strokeWidth="4" rx="2" />;
       }
