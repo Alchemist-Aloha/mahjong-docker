@@ -11,8 +11,11 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:54321}
+        - VITE_BACKEND_URL=${VITE_BACKEND_URL:-}
     ports:
       - "53000:80"
+    environment:
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=54321
     depends_on:
       - backend

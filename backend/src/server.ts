@@ -220,7 +220,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 54321;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+const PORT = Number(process.env.PORT) || 54321;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on 0.0.0.0:${PORT}`);
 });
