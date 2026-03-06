@@ -17,8 +17,7 @@ COPY --from=builder /usr/src/app/dist /usr/share/nginx/html
 # Nginx official image handles .template files in /etc/nginx/templates/
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
-ENV BACKEND_HOST=backend
-ENV BACKEND_PORT=54321
+ENV BACKEND_URL=http://backend:54321
 
 # Default Nginx port is 80
 EXPOSE 80

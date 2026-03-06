@@ -47,7 +47,11 @@ const App: React.FC = () => {
   }, [isDarkMode]);
 
   useEffect(() => {
-    const newSocket = io(SOCKET_URL);
+    const newSocket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      secure: true,
+      rejectUnauthorized: false
+    });
     setSocket(newSocket);
 
     newSocket.on('connect', () => {

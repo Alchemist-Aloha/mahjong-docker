@@ -50,10 +50,11 @@
    您可以通过修改 `docker-compose.yml` 将 `build` 字段替换为 `image` 字段，或者直接使用以下单行命令（需先设置必要的环境变量）：
    ```bash
    # 启动后端
-   docker run -d --name mahjong-backend -p 54321:54321 ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
+   docker run -d --name mahjong-backend -p 54321:54321 ghcr.io/alchemist-aloha/mahjong-docker-backend:main
    
    # 启动前端 (注意替换为实际的后端 URL)
-   docker run -d --name mahjong-frontend -p 53000:80 -e VITE_BACKEND_URL=http://localhost:54321 ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
+   docker run -d --name mahjong-frontend -p 53000:80 -e BACKEND_HOST=localhost BACKEND_PORT=54321 ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
+
    ```
 
 3. **使用专门的 Compose 文件 (推荐)**:
@@ -61,13 +62,13 @@
    ```yaml
    services:
      backend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:latest
+       image: ghcr.io/alchemist-aloha/mahjong-docker-backend:main
        environment:
          - PORT=54321
          - NODE_ENV=production
 
      frontend:
-       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:latest
+       image: ghcr.io/alchemist-aloha/mahjong-docker-frontend:main
        ports:
          - "53000:80"
        environment:
