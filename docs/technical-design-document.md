@@ -14,4 +14,5 @@ The "Hu" (Win) detection uses a backtracking algorithm:
 
 ## 3. Deployment Pipeline
 - **Multi-stage Dockerfiles**: Separation of build and runner environments to minimize the production image footprint.
-- **Environment Injection**: Nginx templates (`nginx.conf.template`) allow for dynamic `BACKEND_URL` injection at container startup, making the same image usable across different environments.
+- **Static Asset Serving**: The frontend Nginx is configured strictly for serving assets and handling SPA routing (`try_files`).
+- **Edge Routing (Caddy)**: All path-based routing (e.g., `/socket.io/`) is handled by Caddy at the infrastructure level. This reduces latency by eliminating a layer of internal proxying.
