@@ -4,6 +4,4 @@ dist
 .gitignore
 README.md
 Dockerfile
-package-lock.json
-vite.config.ts
 nginx.conf

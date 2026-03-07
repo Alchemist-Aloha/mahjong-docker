@@ -4,4 +4,3 @@ dist
 .gitignore
 README.md
 Dockerfile
-package-lock.json
