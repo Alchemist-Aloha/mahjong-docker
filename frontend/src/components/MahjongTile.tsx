@@ -25,7 +25,7 @@ const nameToFilename: Record<string, string> = {
 };
 
 // Use Vite's import.meta.glob to eagerly load all SVG URLs
-const tileSvgs = import.meta.glob('./mahjong_graphic/Vectors 矢量图/SVG/*.svg', { eager: true, as: 'url' });
+const tileSvgs = import.meta.glob('./mahjong_graphic/Vectors/SVG/*.svg', { eager: true, as: 'url' });
 
 const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted, onClick, theme }) => {
   const width = `calc(${size}px * var(--tile-scale, 1))`;
@@ -34,7 +34,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
   const getSvgUrl = (tileName: string) => {
     const filename = nameToFilename[tileName];
     if (!filename) return null;
-    const path = `./mahjong_graphic/Vectors 矢量图/SVG/${filename}.svg`;
+    const path = `./mahjong_graphic/Vectors/SVG/${filename}.svg`;
     return (tileSvgs[path] as any) || null;
   };
 
