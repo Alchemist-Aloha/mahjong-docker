@@ -316,8 +316,15 @@ export class MahjongScorer {
 
 // --- Fan Definitions & Utilities ---
 const getVal = (t: string) => ({ '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 }[t[0]] || 0);
-const getSuit = (t: string) => t.length === 2 ? t[1] : (['东风', '南风', '西风', '北风'].includes(t) ? '风' : '箭');
-const isHonor = (t: string) => getSuit(t) === '风' || getSuit(t) === '箭';
+const getSuit = (t: string) => {
+  if (['东风', '南风', '西风', '北风'].includes(t)) return '风';
+  if (['红中', '发财', '白板'].includes(t)) return '箭';
+  return t[1];
+};
+const isHonor = (t: string) => {
+  const s = getSuit(t);
+  return s === '风' || s === '箭';
+};
 const isTerminal = (t: string) => getVal(t) === 1 || getVal(t) === 9;
 const isTerminalOrHonor = (t: string) => isTerminal(t) || isHonor(t);
 const countMelds = (i: Interpretation, fn: (m: Meld) => boolean) => i.melds.filter(fn).length;
