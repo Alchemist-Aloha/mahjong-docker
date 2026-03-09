@@ -45,6 +45,26 @@ const getCleanRoom = (r: Room) => {
   return clean;
 };
 
+const NAMING_TILES = [
+  '一万', '二万', '三万', '四万', '五万', '六万', '七万', '八万', '九万',
+  '一筒', '二筒', '三筒', '四筒', '五筒', '六筒', '七筒', '八筒', '九筒',
+  '一条', '二条', '三条', '四条', '五条', '六条', '七条', '八条', '九条',
+  '东风', '南风', '西风', '北风', '红中', '发财', '白板',
+  '春', '夏', '秋', '冬', '梅', '兰', '竹', '菊'
+];
+
+const getRandomName = (room: Room, prefix: string) => {
+  const existingNames = Object.values(room.players).map(p => p.name);
+  let attempts = 0;
+  while (attempts < 100) {
+    const tile = NAMING_TILES[Math.floor(Math.random() * NAMING_TILES.length)];
+    const name = `${tile}（${prefix}${Object.keys(room.players).length + 1}）`;
+    if (!existingNames.includes(name)) return name;
+    attempts++;
+  }
+  return `${prefix}${Object.keys(room.players).length + 1}_${Math.random().toString(36).substring(2, 5)}`;
+};
+
 io.on('connection', (socket) => {
   const transport = socket.conn.transport.name;
   const ip = socket.handshake.address;
@@ -91,7 +111,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const name = data.name || `玩家_${userId.substring(0, 4)}`;
+    const name = data.name || getRandomName(room, '玩家');
     room.players[userId] = {
       id: userId,
       socketId: socket.id,
@@ -147,10 +167,11 @@ io.on('connection', (socket) => {
       const neededBots = 4 - humans.length;
       for (let i = 0; i < neededBots; i++) {
         const botId = `bot-${Date.now()}-${i}`;
+        const name = getRandomName(room, '电脑');
         room.players[botId] = {
           id: botId,
           socketId: 'bot',
-          name: `电脑_${i + 1}`,
+          name: name.substring(0, 12),
           ready: true,
           isBot: true,
           totalScore: 0,

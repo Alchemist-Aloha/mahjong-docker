@@ -33,6 +33,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({ gameState, userId, theme, onDis
                 name={tile} 
                 size={44} 
                 theme={theme}
+                suggested={gameState.suggestedDiscards?.includes(idx)}
                 onClick={() => onDiscard(idx)} 
               />
             ))}
@@ -46,6 +47,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({ gameState, userId, theme, onDis
                 size={44} 
                 theme={theme}
                 highlighted 
+                suggested={gameState.suggestedDiscards?.includes(-1)}
                 onClick={onDiscardDrawn} 
               />
             </>

@@ -50,4 +50,5 @@ export interface GameState {
   nextRoundReady: Record<string, boolean>;
   players: Player[];
   logs: string[];
+  suggestedDiscards?: number[];
 }

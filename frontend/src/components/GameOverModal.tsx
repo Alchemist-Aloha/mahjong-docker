@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GameState, GameOverData } from '../types';
 import MahjongTile from './MahjongTile';
+import { FAN_DESCRIPTIONS } from '../constants';
 
 interface GameOverModalProps {
   gameState: GameState;
@@ -10,6 +11,7 @@ interface GameOverModalProps {
 }
 
 const GameOverModal: React.FC<GameOverModalProps> = ({ gameState, gameOverInfo, userId, onNextRound }) => {
+  const [activeFan, setActiveFan] = useState<string | null>(null);
   const winner = gameState.players.find(p => p.id === gameOverInfo.winner);
 
   return (
@@ -66,12 +68,41 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ gameState, gameOverInfo, 
             </div>
 
             {gameOverInfo.score && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                {gameOverInfo.score.fans.map((f, i) => (
-                  <div key={i} style={{ backgroundColor: 'rgba(76, 175, 80, 0.2)', border: '1px solid var(--accent-color)', borderRadius: '4px', padding: '4px 8px', fontSize: '14px' }}>
-                    {f.name} <span style={{ color: '#ffeb3b' }}>+{f.points}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                  {gameOverInfo.score.fans.map((f, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => setActiveFan(activeFan === f.name ? null : f.name)}
+                      style={{ 
+                        backgroundColor: activeFan === f.name ? 'var(--accent-color)' : 'rgba(76, 175, 80, 0.2)', 
+                        border: '1px solid var(--accent-color)', 
+                        borderRadius: '4px', 
+                        padding: '4px 8px', 
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        color: activeFan === f.name ? '#000' : '#fff'
+                      }}
+                    >
+                      {f.name} <span style={{ color: activeFan === f.name ? '#000' : '#ffeb3b' }}>+{f.points}</span>
+                    </div>
+                  ))}
+                </div>
+                {activeFan && (
+                  <div style={{ 
+                    backgroundColor: 'rgba(255,235,59,0.1)', 
+                    border: '1px solid #ffeb3b', 
+                    borderRadius: '6px', 
+                    padding: '10px', 
+                    fontSize: '14px', 
+                    color: '#ffeb3b',
+                    width: '100%',
+                    textAlign: 'left'
+                  }}>
+                    <strong>{activeFan}:</strong> {FAN_DESCRIPTIONS[activeFan] || '暂无说明'}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>

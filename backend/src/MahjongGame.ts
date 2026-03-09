@@ -180,6 +180,12 @@ export class MahjongGame {
     this.playerIds.forEach(id => {
       const player = this.room.players[id];
       if (!player.isBot) {
+        let suggestedDiscards: number[] = [];
+        if (this.isRunning && this.playerIds[this.currentTurnIndex] === id && !this.pendingDiscard && Object.keys(this.waitingForActions).length === 0) {
+          const bot = new MahjongBot(id, this);
+          suggestedDiscards = bot.getBestDiscardCandidates();
+        }
+
         const state = {
           currentTurn: this.playerIds[this.currentTurnIndex],
           dealer: this.playerIds[this.dealerIndex],
@@ -195,6 +201,7 @@ export class MahjongGame {
           roundWinner: this.roundWinner,
           nextRoundReady: this.nextRoundReady,
           logs: this.logs,
+          suggestedDiscards,
           players: this.playerIds.map(pid => ({
             id: pid,
             name: this.room.players[pid].name,

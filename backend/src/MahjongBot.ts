@@ -9,7 +9,7 @@ export class MahjongBot {
     this.game = game;
   }
 
-  public playTurn() {
+  public getBestDiscardCandidates(): number[] {
     const hand = this.game.hands[this.id];
     const drawnTile = this.game.lastDrawnTile[this.id];
 
@@ -41,12 +41,17 @@ export class MahjongBot {
       }
     }
 
+    return bestIndicesToDiscard;
+  }
+
+  public playTurn() {
+    const bestIndicesToDiscard = this.getBestDiscardCandidates();
     // Randomly pick from the best candidates to add some unpredictability
     const chosenIndex = bestIndicesToDiscard[Math.floor(Math.random() * bestIndicesToDiscard.length)];
     this.game.handleDiscard(this.id, chosenIndex);
   }
 
-  private getTileScore(tile: string, fullHand: string[]): number {
+  public getTileScore(tile: string, fullHand: string[]): number {
     const countInHand = fullHand.filter(t => t === tile).length;
     
     // Calculate Visibility: tiles already seen in discards and melds
@@ -61,7 +66,6 @@ export class MahjongBot {
     });
 
     const remainingCount = 4 - visibleCount;
-    // if (remainingCount <= 0 && countInHand === 1) return -100; // Tile is dead, discard immediately
 
     let score = 0;
 

@@ -4,6 +4,7 @@ interface MahjongTileProps {
   name: string;
   size?: number;
   highlighted?: boolean;
+  suggested?: boolean;
   onClick?: () => void;
   theme: 'light' | 'dark';
 }
@@ -27,7 +28,7 @@ const nameToFilename: Record<string, string> = {
 // Use Vite's import.meta.glob to eagerly load all SVG URLs
 const tileSvgs = import.meta.glob('./mahjong_graphic/Vectors/SVG/*.svg', { eager: true, as: 'url' });
 
-const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted, onClick, theme }) => {
+const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted, suggested, onClick, theme }) => {
   const width = `calc(${size}px * var(--tile-scale, 1))`;
   const height = `calc(${size * 1.4}px * var(--tile-scale, 1))`;
 
@@ -43,7 +44,7 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
   return (
     <div 
       onClick={onClick}
-      className="mahjong-tile"
+      className={`mahjong-tile ${suggested ? 'suggested' : ''}`}
       style={{ 
         width, height, 
         backgroundColor: 'transparent',
@@ -59,9 +60,24 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
         userSelect: 'none',
         transition: 'transform 0.1s, background-color 0.3s',
         flexShrink: 0,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}
     >
+      {suggested && (
+        <div style={{
+          position: 'absolute',
+          bottom: '2px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '0',
+          height: '0',
+          borderLeft: '5px solid transparent',
+          borderRight: '5px solid transparent',
+          borderBottom: '8px solid #ff5252',
+          zIndex: 10
+        }}></div>
+      )}
       {svgUrl ? (
         <img 
           src={svgUrl} 
