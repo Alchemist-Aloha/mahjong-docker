@@ -41,9 +41,20 @@ const MahjongTile: React.FC<MahjongTileProps> = ({ name, size = 40, highlighted,
 
   const svgUrl = getSvgUrl(name);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <div 
+      role={onClick ? 'button' : 'img'}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={name}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
       className={`mahjong-tile ${suggested ? 'suggested' : ''}`}
       style={{ 
         width, height, 
