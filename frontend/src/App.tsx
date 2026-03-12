@@ -239,6 +239,10 @@ const App: React.FC = () => {
         grid-template-columns: 1fr;
       }
     }
+    .mahjong-tile:focus-visible {
+      outline: 3px solid var(--accent-color);
+      outline-offset: 2px;
+    }
   `;
 
   return (
